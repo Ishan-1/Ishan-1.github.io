@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>MAVIS Part 3 — Memory Architecture: 3 Tiers, Discrete Labels, and Topic-based Knowledge Graphs | Ishan Gupta</title>
+  <meta name="description" content="How MAVIS manages context across sessions without catastrophic forgetting: three cognitive tiers, verified promotion criteria, and topic-subscribed Neo4j knowledge graphs.">
+
+  <link rel="stylesheet" href="/assets/css/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <!-- Begin Jekyll SEO tag v2.9.1 -->
+<title>MAVIS Part 3 — Memory Architecture: 3 Tiers, Discrete Labels, and Topic-based Knowledge Graphs | Ishan Gupta</title>
+<meta name="generator" content="Jekyll v4.3.4" />
+<meta property="og:title" content="MAVIS Part 3 — Memory Architecture: 3 Tiers, Discrete Labels, and Topic-based Knowledge Graphs" />
+<meta name="author" content="Ishan Gupta" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="To Remember or to Forget? Using an AI agent that remembers nothing is like interacting with a person who forgets what you said a minute ago. On the flip side, trying to remember everything is a recipe for disaster: bloated context degrades model reasoning, pollutes prompts with conversational noise, and drives up token costs." />
+<meta name="twitter:description" property="og:description" content="To Remember or to Forget? Using an AI agent that remembers nothing is like interacting with a person who forgets what you said a minute ago. On the flip side, trying to remember everything is a recipe for disaster: bloated context degrades model reasoning, pollutes prompts with conversational noise, and drives up token costs." />
+<link rel="canonical" href="https://ishan-1.github.io/posts/2026-10-21-mavis-3-memory-architecture/" />
+<meta property="og:url" content="https://ishan-1.github.io/posts/2026-10-21-mavis-3-memory-architecture/" />
+<meta property="og:site_name" content="Ishan Gupta" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2026-10-21T12:00:00+00:00" />
+<meta property="article:modified_time" content="2026-10-21T12:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta name="twitter:title" content="MAVIS Part 3 — Memory Architecture: 3 Tiers, Discrete Labels, and Topic-based Knowledge Graphs" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"Ishan Gupta"},"dateModified":"2026-10-21T12:00:00+00:00","datePublished":"2026-10-21T12:00:00+00:00","description":"To Remember or to Forget? Using an AI agent that remembers nothing is like interacting with a person who forgets what you said a minute ago. On the flip side, trying to remember everything is a recipe for disaster: bloated context degrades model reasoning, pollutes prompts with conversational noise, and drives up token costs.","headline":"MAVIS Part 3 — Memory Architecture: 3 Tiers, Discrete Labels, and Topic-based Knowledge Graphs","mainEntityOfPage":{"@type":"WebPage","@id":"https://ishan-1.github.io/posts/2026-10-21-mavis-3-memory-architecture/"},"url":"https://ishan-1.github.io/posts/2026-10-21-mavis-3-memory-architecture/"}</script>
+<!-- End Jekyll SEO tag -->
+
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$', '$$'], ['\\[', '\\]']],
+        processEscapes: true
+      },
+      options: {
+        skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+      }
+    };
+  </script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+<body>
+  <header class="site-header">
+  <div class="site-header-inner">
+    <div class="site-branding">
+      <a class="site-title" href="/">Ishan Gupta</a>
+      <span class="site-tagline">Engineering Notebook & Architecture Deep-Dives</span>
+    </div>
+    <nav class="site-nav">
+      <a href="/">Home</a>
+      <a href="/#mavis-series">MAVIS Series</a>
+      <a href="/about/">About</a>
+      <a href="https://github.com/Ishan-1" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+
+  <main class="main-content" aria-label="Content">
+    <div class="content-wrapper">
+      <article class="post">
+  <header class="post-header">
+    <div class="post-meta">
+      <time datetime="2026-10-21T12:00:00+00:00">October 21, 2026</time>
+      
+        <span class="meta-sep">&bull;</span>
+        <span class="post-categories">
+          
+            <span class="category-tag">mavis</span>
+          
+            <span class="category-tag">architecture</span>
+          
+        </span>
+      
+      
+        <span class="meta-sep">&bull;</span>
+        <span class="series-tag">Part 3</span>
+      
+    </div>
+
+    <h1 class="post-title">MAVIS Part 3 — Memory Architecture: 3 Tiers, Discrete Labels, and Topic-based Knowledge Graphs</h1>
+
+    
+      <p class="post-summary">How MAVIS manages context across sessions without catastrophic forgetting: three cognitive tiers, verified promotion criteria, and topic-subscribed Neo4j knowledge graphs.</p>
+    
+  </header>
+
+  
+    
+<div class="series-box">
+  <div class="series-header">
+    <span class="series-badge">Architecture Series</span>
+    <h3 class="series-title">MAVIS: Engineering an Autonomous Personal Assistant</h3>
+    <p class="series-subtitle">A technical deep-dive into deterministic DAG planning, self-synthesizing tools, security policy gates, memory consolidation, and autonomous reflection.</p>
+  </div>
+
+  <ol class="series-list">
+    <li class="">
+      <span class="part-num">Part 0</span>
+      <a href="/posts/2026-10-21-mavis-0-overview-and-motivation/">Overview & Motivation: Personal Agents Can Be Cool</a>
+    </li>
+    <li class="">
+      <span class="part-num">Part 1</span>
+      <a href="/posts/2026-10-21-mavis-1-planning-and-dynamic-tooling/">Planning & Dynamic Tooling: Feedforward DAGs, ToolBuilder and AgentBuilder</a>
+    </li>
+    <li class="">
+      <span class="part-num">Part 2</span>
+      <a href="/posts/2026-10-21-mavis-2-security-and-observability/">Security & Observability: Policy Gates and Metrics Dashboard</a>
+    </li>
+    <li class="active">
+      <span class="part-num">Part 3</span>
+      <a href="/posts/2026-10-21-mavis-3-memory-architecture/">Memory Architecture: 3 Tiers, Discrete Labels, and Topic-based Knowledge Graphs</a>
+    </li>
+    <li class="">
+      <span class="part-num">Part 4</span>
+      <a href="/posts/2026-10-21-mavis-4-semantic-caching-and-latency/">Semantic Caching: Plan vs. Result Reuse</a>
+    </li>
+    <li class="">
+      <span class="part-num">Part 5</span>
+      <a href="/posts/2026-10-21-mavis-5-autonomous-self-reflection/">Autonomous Reflection: Curiosity, Rut Detection, and Gated Beliefs</a>
+    </li>
+    <li class="coming-soon">
+      <span class="part-num">Part 6</span>
+      <span>Evaluation: Designing MAVIS-Bench for Evaluation <em class="coming-soon-badge">Coming Soon</em></span>
+    </li>
+  </ol>
+</div>
+
+
+  
+
+  <div class="post-content">
+    <h2 id="to-remember-or-to-forget">To Remember or to Forget?</h2>
+<p>Using an AI agent that remembers nothing is like interacting with a person who forgets what you said a minute ago. On the flip side, trying to remember everything is a recipe for disaster: bloated context degrades model reasoning, pollutes prompts with conversational noise, and drives up token costs.</p>
+
+<p>Therefore, dumping raw chat history into context memory is a sure way to blow up the entire context window with irrelevant content to the query. This can be handled by doing a semantic retrieval of the relevant memory from the vector database and injecting top-K similarity matches into the context window. But this simple fix breaks down quickly in practice. If you told the agent three months ago that you use VS Code, and yesterday instructed it that you switched to Neovim, similarity search retrieves both statements. The LLM is left to guess which one is authoritative.</p>
+
+<p>Even worse, unpartitioned memory violates basic security boundaries: why should an autonomous code-generation tool synthesizing a bash command have read access to your personal notes or calendar entries?</p>
+
+<p>Therefore, the central question I considered when designing the memory was “What to Remember and What to Forget?”.</p>
+
+<p>To solve this, MAVIS models memory after human cognitive consolidation: three distinct retention tiers with explicit promotion gates, and topic-subscribed knowledge graphs.</p>
+
+<hr />
+
+<h2 id="three-tiers-of-cognitive-retention">Three Tiers of Cognitive Retention</h2>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>[ Working Memory ] (In-memory buffer, capped at min(MAX_TOKENS, 0.4 * Context))
+        │
+        ▼ (In-session compaction on overflow / 15-min background worker)
+[ Short-Term Memory ] (Rolling 7-day daily JSON files + ChromaDB vector collection)
+        │
+        ▼ (8-hr background consolidation worker: directive &amp; keyword gating)
+[ Long-Term Memory ] (Topic-Subscribed Neo4j Knowledge Graph + Partitioned JSON)
+</code></pre></div></div>
+
+<table>
+  <thead>
+    <tr>
+      <th>Tier</th>
+      <th>Lifetime</th>
+      <th>Storage Format</th>
+      <th>Promotion / Persistence Trigger</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Working Memory</strong></td>
+      <td>Active session</td>
+      <td>In-memory Python list</td>
+      <td>Session turn initialization</td>
+    </tr>
+    <tr>
+      <td><strong>Short-Term Memory</strong></td>
+      <td>7 Days (rolling)</td>
+      <td>Daily JSON files (<code class="language-plaintext highlighter-rouge">YYYY-MM-DD.json</code>) + ChromaDB</td>
+      <td>4 triggers (emotion, directive, $\ge 3\times$ repetition, tool failure) via 15-min worker</td>
+    </tr>
+    <tr>
+      <td><strong>Long-Term Memory</strong></td>
+      <td>Indefinite</td>
+      <td>Neo4j property graph + partitioned JSON (<code class="language-plaintext highlighter-rouge">behaviours</code>, <code class="language-plaintext highlighter-rouge">facts</code>, <code class="language-plaintext highlighter-rouge">patterns</code>, <code class="language-plaintext highlighter-rouge">fixes</code>)</td>
+      <td>Directive + keyword gating via 8-hr worker; direct pattern/fix writes from ToolBuilder &amp; Debugger</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr />
+
+<h3 id="working-memory--short-term-promotion-15-minute-worker">Working Memory → Short-Term Promotion (15-Minute Worker)</h3>
+
+<p>Working memory holds raw turns in an in-memory buffer. When the buffer approaches token capacity, an in-memory compaction step summarizes older conversational exchanges.</p>
+
+<p>In parallel, a background worker (<code class="language-plaintext highlighter-rouge">short_term_worker.py</code>) runs every 15 minutes during active sessions (guarded to skip if the session has been idle for $&gt;30$ minutes). It inspects unprocessed turns and promotes an entry to short-term daily JSON storage and ChromaDB if any of four triggers fire:</p>
+
+<ol>
+  <li><strong>Emotion Strength</strong>: Detected user urgency, frustration, or excitement (<code class="language-plaintext highlighter-rouge">emotion_strength == "high"</code> or $\ge 0.75$).</li>
+  <li><strong>Explicit Directive</strong>: The turn contains a clear preference or rule (<code class="language-plaintext highlighter-rouge">directive == True</code>).</li>
+  <li><strong>Repetition</strong>: A turn’s embedding matches previous turns with cosine similarity $\ge 0.85$ at least 3 times within a 50-turn window.</li>
+  <li><strong>Tool Failure</strong>: The entry records a runtime tool fault (<code class="language-plaintext highlighter-rouge">tool_failure == True</code>), preserving context for subsequent debugging.</li>
+</ol>
+
+<hr />
+
+<h3 id="short-term--long-term-promotion-8-hour-worker--subsystems">Short-Term → Long-Term Promotion (8-Hour Worker &amp; Subsystems)</h3>
+
+<p>Promoting something to indefinite long-term storage requires much higher confidence. In MAVIS, this is split into two mechanisms:</p>
+
+<h4 id="1-the-periodic-consolidation-worker-long_term_workerpy">1. The Periodic Consolidation Worker (<code class="language-plaintext highlighter-rouge">long_term_worker.py</code>)</h4>
+<p>Every 8 hours (480 minutes via the internal task runner), a worker scans short-term turns added since its last persisted cursor (<code class="language-plaintext highlighter-rouge">lt_cursor_path</code>). Unlike short-term promotion, emotion and repetition alone <strong>cannot</strong> promote an entry to long-term memory.</p>
+
+<p>The worker evaluates entries through <code class="language-plaintext highlighter-rouge">should_promote_long_term()</code>:</p>
+<ul>
+  <li><strong>Mandatory Hard Gate</strong>: The turn must have <code class="language-plaintext highlighter-rouge">directive == True</code> (or legacy <code class="language-plaintext highlighter-rouge">intent_strength &gt; 0.85</code>). If <code class="language-plaintext highlighter-rouge">directive</code> is false, promotion is rejected immediately.</li>
+  <li><strong>Persistent Behavioral Keywords</strong>: If the content contains terms like <code class="language-plaintext highlighter-rouge">"always"</code>, <code class="language-plaintext highlighter-rouge">"never"</code>, <code class="language-plaintext highlighter-rouge">"permanently"</code>, <code class="language-plaintext highlighter-rouge">"from now on"</code>, <code class="language-plaintext highlighter-rouge">"every time"</code>, or <code class="language-plaintext highlighter-rouge">"prefer"</code>, it is promoted as a <strong><code class="language-plaintext highlighter-rouge">behaviour</code></strong> (<code class="language-plaintext highlighter-rouge">behaviours.json</code>).</li>
+  <li><strong>Explicit Fact Keywords</strong>: If the content contains terms like <code class="language-plaintext highlighter-rouge">"remember forever"</code>, <code class="language-plaintext highlighter-rouge">"remember this permanently"</code>, <code class="language-plaintext highlighter-rouge">"never forget"</code>, or <code class="language-plaintext highlighter-rouge">"remember that"</code>, it is promoted as a <strong><code class="language-plaintext highlighter-rouge">fact</code></strong> (<code class="language-plaintext highlighter-rouge">facts.json</code>).</li>
+  <li><strong>Knowledge Graph Extraction</strong>: When an entry qualifies, an asynchronous extractor (<code class="language-plaintext highlighter-rouge">extract_facts_from_turn</code>) runs an LLM pass to convert the turn into structured <code class="language-plaintext highlighter-rouge">(subject, predicate, object)</code> triples and writes them into Neo4j.</li>
+  <li><strong>7-Day TTL Pruning</strong>: After processing delta turns, the worker deletes short-term daily JSON files older than 7 days and purges expired date ranges from the ChromaDB collection.</li>
+</ul>
+
+<h4 id="2-direct-subsystem-writes-no-background-worker-wait">2. Direct Subsystem Writes (No Background Worker Wait)</h4>
+<p>Specialized autonomous subsystems bypass the 8-hour worker entirely when recording verified technical knowledge:</p>
+<ul>
+  <li><strong><code class="language-plaintext highlighter-rouge">ToolBuilder</code></strong>: Once a synthesized tool passes static analysis and sandbox tests, it immediately calls <code class="language-plaintext highlighter-rouge">write_pattern()</code>, persisting the function signature and conventions into <code class="language-plaintext highlighter-rouge">patterns.json</code> and creating a tool definition node in Neo4j.</li>
+  <li><strong><code class="language-plaintext highlighter-rouge">PipelineDebugger</code> &amp; <code class="language-plaintext highlighter-rouge">AgentBuilder</code></strong>: When a debugging loop successfully fixes a tool execution fault or agent prompting failure, it immediately calls <code class="language-plaintext highlighter-rouge">write_fix()</code> / <code class="language-plaintext highlighter-rouge">write_agent_fix()</code>, logging the failure mode and verified patch into <code class="language-plaintext highlighter-rouge">fixes.json</code> and adding fix relationships to Neo4j.</li>
+</ul>
+
+<hr />
+
+<h2 id="why-discrete-labels-beat-continuous-floats">Why Discrete Labels Beat Continuous Floats</h2>
+
+<p>Many agent architectures ask LLMs to emit continuous floating-point scores between <code class="language-plaintext highlighter-rouge">0.0</code> and <code class="language-plaintext highlighter-rouge">1.0</code> for sentiment, importance, or intent strength.</p>
+
+<p>In practice, LLM-generated floats are noisy, uncalibrated pseudo-math. A score of <code class="language-plaintext highlighter-rouge">0.78</code> vs <code class="language-plaintext highlighter-rouge">0.84</code> does not reflect a meaningful probability distribution—it reflects prompt phrasing quirks and sampling noise.</p>
+
+<p>Instead of parsing fragile floats, MAVIS classifies entries using <strong>discrete categories</strong> and boolean flags:</p>
+<ul>
+  <li><strong>Emotion</strong>: <code class="language-plaintext highlighter-rouge">"low"</code>, <code class="language-plaintext highlighter-rouge">"medium"</code>, <code class="language-plaintext highlighter-rouge">"high"</code></li>
+  <li><strong>Directive</strong>: <code class="language-plaintext highlighter-rouge">True</code> / <code class="language-plaintext highlighter-rouge">False</code></li>
+</ul>
+
+<p>These fields are extracted directly in the primary <code class="language-plaintext highlighter-rouge">Interpreter</code> response schema. Because they are returned as part of the normal turn comprehension pass, classification incurs zero additional API round-trips or latency overhead.</p>
+
+<blockquote>
+  <p><strong>Engineering Principle</strong>: Reject continuous LLM-emitted confidence floats in favor of discrete enum buckets and binary flags that map directly to deterministically testable state transitions.</p>
+</blockquote>
+
+<hr />
+
+<h2 id="topic-based-knowledge-graphs">Topic-based Knowledge Graphs</h2>
+
+<p>Different components in MAVIS require fundamentally different kinds of memory:</p>
+<ul>
+  <li>The <strong>Interpreter</strong> needs user preferences, environment configs, and episodic history to understand user requests.</li>
+  <li>The <strong>ToolBuilder</strong> and <strong>PipelineDebugger</strong> need OS specifications, Python runtime details, and prior fix patterns.</li>
+  <li><strong>Background Tasks</strong> need execution state and workflow metadata.</li>
+</ul>
+
+<p>Mixing all of this into a single global vector store creates context cross-contamination and introduces major security risks. Interacting with memory is therefore modeled as a <strong>publisher-subscriber hierarchy</strong> over partitioned Neo4j graphs and JSON stores:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Component Namespace</th>
+      <th>Subscribed Read Topics</th>
+      <th>Write Topic</th>
+      <th>User Personal Data Access</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Interpreter</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">["user.*", "env.*", "tooling.*", "tasks.*"]</code></td>
+      <td><code class="language-plaintext highlighter-rouge">user.episodic</code></td>
+      <td>✅ Permitted</td>
+    </tr>
+    <tr>
+      <td><strong>ToolBuilder / Debugger</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">["env.os", "env.python", "tooling.*"]</code></td>
+      <td><code class="language-plaintext highlighter-rouge">tooling.patterns</code></td>
+      <td>❌ <strong>Hard Blocked</strong></td>
+    </tr>
+    <tr>
+      <td><strong>Background Tasks</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">["env.*", "tooling.*", "tasks.*"]</code></td>
+      <td><code class="language-plaintext highlighter-rouge">tasks.workflow</code></td>
+      <td>❌ <strong>Hard Blocked</strong></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Code-generating components like <code class="language-plaintext highlighter-rouge">ToolBuilder</code> are <strong>strictly barred</strong> from querying personal user namespaces (<code class="language-plaintext highlighter-rouge">user.*</code>). Even if a prompt injection exploits the tool synthesis pipeline, it cannot read personal memory or credentials.</p>
+
+<h3 id="resolving-contradictions-superseding-not-deleting">Resolving Contradictions: Superseding, Not Deleting</h3>
+
+<p>User preferences and environment states evolve over time. When a new 1-to-1 functional predicate arrives (e.g., updating <code class="language-plaintext highlighter-rouge">PREFERS_EDITOR = "Neovim"</code> where <code class="language-plaintext highlighter-rouge">PREFERS_EDITOR = "VS Code"</code> previously existed), the previous edge is not erased.</p>
+
+<p>Instead, the graph engine marks the prior relationship edge as inactive with an expiration timestamp. The historical record is preserved for auditing and rollbacks, but subscriber queries filter for active edges only. This prevents vector search’s classic failure mode: surfacing two contradictory facts with equal weight.</p>
+
+<hr />
+
+<p><em>In Part 4, I will discuss how MAVIS implements semantic caching to cut latency and cost on redundant queries.</em></p>
+
+  </div>
+
+  <footer class="post-footer">
+    
+      <div class="post-nav">
+        
+        
+
+        <div class="nav-prev">
+          
+            <span class="nav-label">&larr; Previous in Series</span>
+            
+              
+            
+              
+            
+              
+            
+              
+                <a href="/posts/2026-10-21-mavis-2-security-and-observability/">MAVIS Part 2 — Security & Observability: Policy Gates and Metrics Dashboard</a>
+              
+            
+              
+            
+              
+            
+          
+        </div>
+
+        <div class="nav-next">
+          
+            <span class="nav-label">Next in Series &rarr;</span>
+            
+              
+            
+              
+                <a href="/posts/2026-10-21-mavis-4-semantic-caching-and-latency/">MAVIS Part 4 — Semantic Caching: Plan vs. Result Reuse</a>
+              
+            
+              
+            
+              
+            
+              
+            
+              
+            
+          
+        </div>
+      </div>
+    
+
+    <div class="post-back-link">
+      <a href="/#mavis-series">&larr; Back to all MAVIS series posts</a>
+    </div>
+  </footer>
+</article>
+
+    </div>
+  </main>
+
+  <footer class="site-footer">
+  <div class="site-footer-inner">
+    <p>&copy; 2026 Ishan Gupta. Built with Jekyll for <a href="https://github.com/Ishan-1/Ishan-1.github.io" target="_blank" rel="noopener">GitHub Pages</a>.</p>
+  </div>
+</footer>
+
+</body>
+</html>

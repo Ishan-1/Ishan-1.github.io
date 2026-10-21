@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>MAVIS Part 4 — Semantic Caching: Plan vs. Result Reuse | Ishan Gupta</title>
+  <meta name="description" content="How MAVIS cuts latency and token costs: SQLite vector caching, tiered similarity thresholds, separating plan reuse from result TTLs, and deterministic regex pre-filters.">
+
+  <link rel="stylesheet" href="/assets/css/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <!-- Begin Jekyll SEO tag v2.9.1 -->
+<title>MAVIS Part 4 — Semantic Caching: Plan vs. Result Reuse | Ishan Gupta</title>
+<meta name="generator" content="Jekyll v4.3.4" />
+<meta property="og:title" content="MAVIS Part 4 — Semantic Caching: Plan vs. Result Reuse" />
+<meta name="author" content="Ishan Gupta" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="The Fault in Our Caches" />
+<meta name="twitter:description" property="og:description" content="The Fault in Our Caches" />
+<link rel="canonical" href="https://ishan-1.github.io/posts/2026-10-21-mavis-4-semantic-caching-and-latency/" />
+<meta property="og:url" content="https://ishan-1.github.io/posts/2026-10-21-mavis-4-semantic-caching-and-latency/" />
+<meta property="og:site_name" content="Ishan Gupta" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2026-10-21T13:00:00+00:00" />
+<meta property="article:modified_time" content="2026-10-21T13:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta name="twitter:title" content="MAVIS Part 4 — Semantic Caching: Plan vs. Result Reuse" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"Ishan Gupta"},"dateModified":"2026-10-21T13:00:00+00:00","datePublished":"2026-10-21T13:00:00+00:00","description":"The Fault in Our Caches","headline":"MAVIS Part 4 — Semantic Caching: Plan vs. Result Reuse","mainEntityOfPage":{"@type":"WebPage","@id":"https://ishan-1.github.io/posts/2026-10-21-mavis-4-semantic-caching-and-latency/"},"url":"https://ishan-1.github.io/posts/2026-10-21-mavis-4-semantic-caching-and-latency/"}</script>
+<!-- End Jekyll SEO tag -->
+
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$', '$$'], ['\\[', '\\]']],
+        processEscapes: true
+      },
+      options: {
+        skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+      }
+    };
+  </script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+<body>
+  <header class="site-header">
+  <div class="site-header-inner">
+    <div class="site-branding">
+      <a class="site-title" href="/">Ishan Gupta</a>
+      <span class="site-tagline">Engineering Notebook & Architecture Deep-Dives</span>
+    </div>
+    <nav class="site-nav">
+      <a href="/">Home</a>
+      <a href="/#mavis-series">MAVIS Series</a>
+      <a href="/about/">About</a>
+      <a href="https://github.com/Ishan-1" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+
+  <main class="main-content" aria-label="Content">
+    <div class="content-wrapper">
+      <article class="post">
+  <header class="post-header">
+    <div class="post-meta">
+      <time datetime="2026-10-21T13:00:00+00:00">October 21, 2026</time>
+      
+        <span class="meta-sep">&bull;</span>
+        <span class="post-categories">
+          
+            <span class="category-tag">mavis</span>
+          
+            <span class="category-tag">architecture</span>
+          
+        </span>
+      
+      
+        <span class="meta-sep">&bull;</span>
+        <span class="series-tag">Part 4</span>
+      
+    </div>
+
+    <h1 class="post-title">MAVIS Part 4 — Semantic Caching: Plan vs. Result Reuse</h1>
+
+    
+      <p class="post-summary">How MAVIS cuts latency and token costs: SQLite vector caching, tiered similarity thresholds, separating plan reuse from result TTLs, and deterministic regex pre-filters.</p>
+    
+  </header>
+
+  
+    
+<div class="series-box">
+  <div class="series-header">
+    <span class="series-badge">Architecture Series</span>
+    <h3 class="series-title">MAVIS: Engineering an Autonomous Personal Assistant</h3>
+    <p class="series-subtitle">A technical deep-dive into deterministic DAG planning, self-synthesizing tools, security policy gates, memory consolidation, and autonomous reflection.</p>
+  </div>
+
+  <ol class="series-list">
+    <li class="">
+      <span class="part-num">Part 0</span>
+      <a href="/posts/2026-10-21-mavis-0-overview-and-motivation/">Overview & Motivation: Personal Agents Can Be Cool</a>
+    </li>
+    <li class="">
+      <span class="part-num">Part 1</span>
+      <a href="/posts/2026-10-21-mavis-1-planning-and-dynamic-tooling/">Planning & Dynamic Tooling: Feedforward DAGs, ToolBuilder and AgentBuilder</a>
+    </li>
+    <li class="">
+      <span class="part-num">Part 2</span>
+      <a href="/posts/2026-10-21-mavis-2-security-and-observability/">Security & Observability: Policy Gates and Metrics Dashboard</a>
+    </li>
+    <li class="">
+      <span class="part-num">Part 3</span>
+      <a href="/posts/2026-10-21-mavis-3-memory-architecture/">Memory Architecture: 3 Tiers, Discrete Labels, and Topic-based Knowledge Graphs</a>
+    </li>
+    <li class="active">
+      <span class="part-num">Part 4</span>
+      <a href="/posts/2026-10-21-mavis-4-semantic-caching-and-latency/">Semantic Caching: Plan vs. Result Reuse</a>
+    </li>
+    <li class="">
+      <span class="part-num">Part 5</span>
+      <a href="/posts/2026-10-21-mavis-5-autonomous-self-reflection/">Autonomous Reflection: Curiosity, Rut Detection, and Gated Beliefs</a>
+    </li>
+    <li class="coming-soon">
+      <span class="part-num">Part 6</span>
+      <span>Evaluation: Designing MAVIS-Bench for Evaluation <em class="coming-soon-badge">Coming Soon</em></span>
+    </li>
+  </ol>
+</div>
+
+
+  
+
+  <div class="post-content">
+    <h2 id="the-fault-in-our-caches">The Fault in Our Caches</h2>
+
+<p>Caching is a core concept in software and hardware design where you store results for reuse instead of recomputing. MAVIS has to construct a DAG for every task and then execute it which is significant in terms of both latency and cost. Therefore, it is more optimal to store and re-use both plans and results whenever possible. However, there are three issues that must be solved:</p>
+
+<ul>
+  <li><strong>When to Use Cache?</strong>: Doing an exact match of query to determine a cache hit will result in misses where queries are reworded or are very similar. Depending upon semantic matching can result in serving wrong results for queries like “Summarize that” or “Summarize something that is similar to X”. An LLM can figure that out but it is slow and costly for caching.</li>
+  <li><strong>What to serve from Cache?</strong>: Since results and pipelines both can be served from cache, it is important to determine whether the results are good to be reused or if the pipeline needs to be re-run.</li>
+  <li><strong>How long to serve?</strong>: Cached results are prone to becoming stale. For example, if you cached the date for the query, “What is today’s date?” and the user prompted for it again tomorrow, a wrong result is served. Therefore, determining an appropriate TTL is necessary.</li>
+</ul>
+
+<p>MAVIS solves this with a lightweight <strong>SQLite vector cache</strong>, tiered cache hit thresholds, cache pre-filtering, and a strict architectural distinction between <strong>plan reuse</strong> and <strong>result reuse</strong>.</p>
+
+<hr />
+
+<h2 id="cache-pre-filtering">Cache Pre-filtering</h2>
+
+<p>As mentioned above, natural language queries such as “Fix it”, “Could you repeat that?”, etc. are notoriously difficult to cache and serve properly. Because their meaning depends entirely on previous conversational context, extracting the relevant context without an LLM is error-prone, and caching them pollutes the database with ambiguous keys. MAVIS avoids caching them altogether using a deterministic regex pre-filter:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Context-dependent queries bypass cache lookup and writes completely
+</span><span class="n">CONTEXT_DEPENDENT_PATTERNS</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="sa">r</span><span class="sh">"</span><span class="s">^(fix|repair|patch)\s+(this|that|it)</span><span class="sh">"</span><span class="p">,</span>
+    <span class="sa">r</span><span class="sh">"</span><span class="s">^(continue|keep going|next)</span><span class="sh">"</span><span class="p">,</span>
+    <span class="sa">r</span><span class="sh">"</span><span class="s">^(try again|retry)</span><span class="sh">"</span><span class="p">,</span>
+    <span class="sa">r</span><span class="sh">"</span><span class="s">^why did (that|it) fail</span><span class="sh">"</span>
+<span class="p">]</span>
+</code></pre></div></div>
+
+<p>Queries matching these patterns skip the cache entirely to avoid polluting the database with context-dependent keys.</p>
+
+<blockquote>
+  <p><strong>Note</strong>: Cache hit rates on the dashboard are calculated strictly over <strong>eligible (non-bypassed)</strong> queries. The bypass rate is reported as a separate metric so statistics are never artificially skewed.</p>
+</blockquote>
+
+<hr />
+
+<h2 id="tiered-similarity-thresholds">Tiered Similarity Thresholds</h2>
+
+<p>When a query arrives after passing the cache pre-filter, it is embedded and compared against stored query vectors using cosine similarity:</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Incoming Query
+     │
+     ▼
+[ SQLite Vector Search ] ──► Computes Cosine Similarity
+     │
+     ├─► Score &gt; 0.95 ──────────► Tier 1: Instant Hit
+     │                             └─► Valid TTL? ──► Return cached result
+     │                             └─► Stale TTL? ──► Re-execute cached DAG
+     │
+     ├─► 0.85 ≤ Score ≤ 0.95 ───► Tier 2: Fast LLM Verifier Check
+     │                             └─► Confirmed? ──► Reuse pipeline
+     │                             └─► Rejected?  ──► Pass to Interpreter
+     │
+     └─► Score &lt; 0.85 ──────────► Tier 3: Automatic Miss ──► Full Interpreter Planning
+</code></pre></div></div>
+
+<hr />
+
+<h2 id="storing-in-cache">Storing in Cache</h2>
+
+<p>Not every query or execution result is worth caching. To determine how an execution should be stored, the <code class="language-plaintext highlighter-rouge">Interpreter</code> produces three caching parameters alongside the compiled DAG <code class="language-plaintext highlighter-rouge">pipeline</code>:</p>
+
+<ol>
+  <li><strong><code class="language-plaintext highlighter-rouge">cacheable</code> (Boolean)</strong>: Dictates whether the query can be cached at all, or if it involves non-repeatable operations or transient time references.</li>
+  <li><strong><code class="language-plaintext highlighter-rouge">ttl</code> (Seconds)</strong>: Defines how long the computed result remains fresh before expiring.</li>
+  <li><strong><code class="language-plaintext highlighter-rouge">generalizability</code> (<code class="language-plaintext highlighter-rouge">"generalized"</code> vs. <code class="language-plaintext highlighter-rouge">"specialized"</code>)</strong>: Indicates whether the generated pipeline can serve as a reusable template for similar requests with different arguments, or if it is strictly tied to this specific query.</li>
+</ol>
+
+<h3 id="how-these-parameters-determine-storage">How These Parameters Determine Storage</h3>
+
+<p>Before writing to the cache, MAVIS evaluates these parameters alongside the input:</p>
+<ul>
+  <li><strong>Pre-Filter Rejection</strong>: If <code class="language-plaintext highlighter-rouge">cacheable</code> is <code class="language-plaintext highlighter-rouge">False</code>, or if the query triggers the regex context-dependency pre-filter (e.g., <em>“try that again”</em>), the execution bypasses storage entirely to prevent polluting the cache.</li>
+  <li><strong>Recording Plan and State</strong>: For eligible queries, MAVIS stores the query vector alongside the compiled DAG <code class="language-plaintext highlighter-rouge">pipeline</code>, the computed <code class="language-plaintext highlighter-rouge">result</code>, the expiration timestamp (<code class="language-plaintext highlighter-rouge">now + ttl</code>), and the <code class="language-plaintext highlighter-rouge">generalizability</code> flag.</li>
+  <li><strong>Template Tagging</strong>: Entries marked <code class="language-plaintext highlighter-rouge">"generalized"</code> signal that future near-matching queries don’t need to match identically; a lightweight parameter extraction pass can simply slot new variables into the existing DAG nodes. Entries marked <code class="language-plaintext highlighter-rouge">"specialized"</code> are reserved strictly for near-exact query reuse.</li>
+</ul>
+
+<hr />
+
+<h2 id="plan-reuse-vs-result-reuse-why-ttl-matters">Plan Reuse vs. Result Reuse: Why TTL Matters</h2>
+
+<p>A key insight in MAVIS is separating <strong>how a task is accomplished</strong> (the DAG pipeline) from <strong>the output produced</strong> (the result):</p>
+
+<ul>
+  <li><strong>Result Reuse</strong>: Valid for queries whose answers remain static over time (e.g., <em>“What is an AST?”</em> or <em>“Explain topological sort”</em>). These entries are assigned long TTLs and return instantly without running any code.</li>
+  <li><strong>Plan Reuse</strong>: Valid for dynamic queries whose answers change but whose execution structure remains identical (e.g., <em>“Check git status of repo X”</em> or <em>“What is the weather in city Y?”</em>). The pipeline is reused, but a lightweight parameter extractor maps new inputs into the cached DAG before re-execution.</li>
+</ul>
+
+<h3 id="cache-eviction-and-maintenance">Cache Eviction and Maintenance</h3>
+<p>Because plans and results have different lifecycles, cache eviction operates asymmetrically. When an entry’s TTL expires, MAVIS does not delete the cached record—it only clears the <code class="language-plaintext highlighter-rouge">result</code> field while keeping the DAG <code class="language-plaintext highlighter-rouge">pipeline</code> intact. This allows stale data to be discarded without losing the pipeline. The next matching query gets a fast pipeline hit, running the existing plan to fetch fresh data without incurring the latency or token cost of full planning. To prevent unbounded storage growth over time, the cache enforces a bounded ceiling (e.g., 1,000 entries), pruning the oldest records when the limit is reached.</p>
+
+<hr />
+
+<p><em>In Part 5, I will explain how MAVIS does autonomous self-reflection during idle periods without infinite token burn.</em></p>
+
+  </div>
+
+  <footer class="post-footer">
+    
+      <div class="post-nav">
+        
+        
+
+        <div class="nav-prev">
+          
+            <span class="nav-label">&larr; Previous in Series</span>
+            
+              
+            
+              
+            
+              
+                <a href="/posts/2026-10-21-mavis-3-memory-architecture/">MAVIS Part 3 — Memory Architecture: 3 Tiers, Discrete Labels, and Topic-based Knowledge Graphs</a>
+              
+            
+              
+            
+              
+            
+              
+            
+          
+        </div>
+
+        <div class="nav-next">
+          
+            <span class="nav-label">Next in Series &rarr;</span>
+            
+              
+                <a href="/posts/2026-10-21-mavis-5-autonomous-self-reflection/">MAVIS Part 5 — Autonomous Reflection: Curiosity, Rut Detection, and Gated Beliefs</a>
+              
+            
+              
+            
+              
+            
+              
+            
+              
+            
+              
+            
+          
+        </div>
+      </div>
+    
+
+    <div class="post-back-link">
+      <a href="/#mavis-series">&larr; Back to all MAVIS series posts</a>
+    </div>
+  </footer>
+</article>
+
+    </div>
+  </main>
+
+  <footer class="site-footer">
+  <div class="site-footer-inner">
+    <p>&copy; 2026 Ishan Gupta. Built with Jekyll for <a href="https://github.com/Ishan-1/Ishan-1.github.io" target="_blank" rel="noopener">GitHub Pages</a>.</p>
+  </div>
+</footer>
+
+</body>
+</html>

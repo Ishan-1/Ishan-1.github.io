@@ -1,3 +1,29 @@
-theme: jekyll-theme-minimal
-title: Ishan-1's homepage
-description: Bookmark this to keep an eye on my project updates
+title: "Ishan Gupta"
+tagline: "Engineering Notebook & Architecture Deep-Dives"
+description: "Technical notes, systems architecture, and engineering deep-dives on autonomous AI agents and personal software."
+author:
+  name: "Ishan Gupta"
+  github: "Ishan-1"
+url: "https://ishan-1.github.io"
+baseurl: ""
+
+# Build settings
+markdown: kramdown
+highlighter: rouge
+permalink: /posts/:year-:month-:day-:title/
+future: true
+
+kramdown:
+  input: GFM
+  syntax_highlighter: rouge
+  math_engine: mathjax
+
+plugins:
+  - jekyll-seo-tag
+
+exclude:
+  - README.md
+  - context.md
+  - Gemfile
+  - Gemfile.lock
+  - vendor

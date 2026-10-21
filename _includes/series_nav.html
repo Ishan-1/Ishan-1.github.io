@@ -1,0 +1,40 @@
+{% if page.series == "mavis" %}
+<div class="series-box">
+  <div class="series-header">
+    <span class="series-badge">Architecture Series</span>
+    <h3 class="series-title">MAVIS: Engineering an Autonomous Personal Assistant</h3>
+    <p class="series-subtitle">A technical deep-dive into deterministic DAG planning, self-synthesizing tools, security policy gates, memory consolidation, and autonomous reflection.</p>
+  </div>
+
+  <ol class="series-list">
+    <li class="{% if page.series_part == 0 %}active{% endif %}">
+      <span class="part-num">Part 0</span>
+      <a href="{{ '/posts/2026-10-21-mavis-0-overview-and-motivation/' | relative_url }}">Overview & Motivation: Personal Agents Can Be Cool</a>
+    </li>
+    <li class="{% if page.series_part == 1 %}active{% endif %}">
+      <span class="part-num">Part 1</span>
+      <a href="{{ '/posts/2026-10-21-mavis-1-planning-and-dynamic-tooling/' | relative_url }}">Planning & Dynamic Tooling: Feedforward DAGs, ToolBuilder and AgentBuilder</a>
+    </li>
+    <li class="{% if page.series_part == 2 %}active{% endif %}">
+      <span class="part-num">Part 2</span>
+      <a href="{{ '/posts/2026-10-21-mavis-2-security-and-observability/' | relative_url }}">Security & Observability: Policy Gates and Metrics Dashboard</a>
+    </li>
+    <li class="{% if page.series_part == 3 %}active{% endif %}">
+      <span class="part-num">Part 3</span>
+      <a href="{{ '/posts/2026-10-21-mavis-3-memory-architecture/' | relative_url }}">Memory Architecture: 3 Tiers, Discrete Labels, and Topic-based Knowledge Graphs</a>
+    </li>
+    <li class="{% if page.series_part == 4 %}active{% endif %}">
+      <span class="part-num">Part 4</span>
+      <a href="{{ '/posts/2026-10-21-mavis-4-semantic-caching-and-latency/' | relative_url }}">Semantic Caching: Plan vs. Result Reuse</a>
+    </li>
+    <li class="{% if page.series_part == 5 %}active{% endif %}">
+      <span class="part-num">Part 5</span>
+      <a href="{{ '/posts/2026-10-21-mavis-5-autonomous-self-reflection/' | relative_url }}">Autonomous Reflection: Curiosity, Rut Detection, and Gated Beliefs</a>
+    </li>
+    <li class="coming-soon">
+      <span class="part-num">Part 6</span>
+      <span>Evaluation: Designing MAVIS-Bench for Evaluation <em class="coming-soon-badge">Coming Soon</em></span>
+    </li>
+  </ol>
+</div>
+{% endif %}

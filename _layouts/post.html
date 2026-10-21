@@ -1,0 +1,75 @@
+---
+layout: default
+---
+
+<article class="post">
+  <header class="post-header">
+    <div class="post-meta">
+      <time datetime="{{ page.date | date_to_xmlschema }}">{{ page.date | date: "%B %d, %Y" }}</time>
+      {% if page.categories %}
+        <span class="meta-sep">&bull;</span>
+        <span class="post-categories">
+          {% for cat in page.categories %}
+            <span class="category-tag">{{ cat }}</span>
+          {% endfor %}
+        </span>
+      {% endif %}
+      {% if page.series_part %}
+        <span class="meta-sep">&bull;</span>
+        <span class="series-tag">Part {{ page.series_part }}</span>
+      {% endif %}
+    </div>
+
+    <h1 class="post-title">{{ page.title }}</h1>
+
+    {% if page.summary %}
+      <p class="post-summary">{{ page.summary }}</p>
+    {% endif %}
+  </header>
+
+  {% if page.series == "mavis" %}
+    {% include series_nav.html %}
+  {% endif %}
+
+  <div class="post-content">
+    {{ content }}
+  </div>
+
+  <footer class="post-footer">
+    {% if page.series == "mavis" %}
+      <div class="post-nav">
+        {% assign prev_part = page.series_part | minus: 1 %}
+        {% assign next_part = page.series_part | plus: 1 %}
+
+        <div class="nav-prev">
+          {% if prev_part >= 0 %}
+            <span class="nav-label">&larr; Previous in Series</span>
+            {% for p in site.posts %}
+              {% if p.series == "mavis" and p.series_part == prev_part %}
+                <a href="{{ p.url | relative_url }}">{{ p.title }}</a>
+              {% endif %}
+            {% endfor %}
+          {% endif %}
+        </div>
+
+        <div class="nav-next">
+          {% if next_part <= 5 %}
+            <span class="nav-label">Next in Series &rarr;</span>
+            {% for p in site.posts %}
+              {% if p.series == "mavis" and p.series_part == next_part %}
+                <a href="{{ p.url | relative_url }}">{{ p.title }}</a>
+              {% endif %}
+            {% endfor %}
+          {% elsif page.series_part == 5 %}
+            <span class="nav-label">Up Next</span>
+            <span class="coming-soon-nav">Part 6: Evaluation <em>(Coming Soon)</em></span>
+          {% endif %}
+        </div>
+      </div>
+    {% endif %}
+
+    <div class="post-back-link">
+      <a href="{{ '/#mavis-series' | relative_url }}">&larr; Back to all MAVIS series posts</a>
+    </div>
+  </footer>
+</article>
