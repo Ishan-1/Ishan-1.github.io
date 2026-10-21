@@ -17,9 +17,6 @@ This describes what I have always felt is missing in many AI assistants: they on
 I designed the **Autonomous Reflection Engine** around one foundational principle:
 
 > **"Exploration is good but it should be worthwhile."**
-
-Idle exploration must lead to concrete satisfaction—learning a new pattern, resolving a recurring failure, or compressing an active rule—rather than aimless rabbit holes. And as a security precaution against memory pollution, **no reflection finding is ever visible to the planner** until the user reviews and approves it in the dashboard.
-
 ---
 
 ## System Architecture
@@ -38,17 +35,17 @@ Idle exploration must lead to concrete satisfaction—learning a new pattern, re
                        │ Selected Concept
                        ▼
 ┌──────────────────────────────────────────────┐
-│ Phase 2: The Triage Gate (Low-Temp Filter)   │
-│ - Score utility for rule/compression         │
+│ Phase 2: The Triage Gate (Categorical Filter)│
+│ - 4-tier rubric evaluation (1.00/0.75/0.40/0)│
 │ - Score < 0.70 ──► Instant Abort (0 tokens)  │
 └──────────────────────┬───────────────────────┘
                        │ Score ≥ 0.70
                        ▼
 ┌──────────────────────────────────────────────┐
 │ Phase 3: Adversarial Exploration Loop        │
-│ - Generator: Testable, falsifiable hypothesis│
+│ - Generator prompt: Formulate hypothesis     │
 │ - Dual-source evidence (quarantined web/docs)│
-│ - Critic: Logic attack & falsification check │
+│ - Critic prompt: Logic attack & falsification│
 │ - Max 3 turns (ACCEPT / REFINE / REJECT)     │
 └──────────────────────┬───────────────────────┘
                        │ Validated Insight
@@ -64,43 +61,46 @@ Idle exploration must lead to concrete satisfaction—learning a new pattern, re
 
 ## Phase 1: Topic Selection and Rut Detection
 
-To start exploring, it is important to pick the seed topic. The reflection engine has a pool of seed topics from which it can pick. The seeds are sourced by either selecting recent shards of long-term memory or by selecting manually added seeds that can be added through the dashboard. In case of selecting a long-term memory shard, the concept is explicitly extracted in 3-8 words instead of just using the entire memory shard.
+To start exploring, it is important to pick the seed topic. The reflection engine maintains a pool of seed topics from which it can sample. Seeds are sourced by either selecting recent shards of long-term memory or selecting manually adding seeds through the reflections tab in the dashboard. In case of selecting a long-term memory shard, the concept is explicitly extracted in 3–8 words instead of using the entire memory shard as the seed.
 
-But this does not guarantee that the topics selected are novel. The same concepts might be selected repeatedly over time. To prevent this, rut detection is done by calculating the following metrics:
-- Embedding Density ($D$): This measures how densely the embeddings of recent reflection topics are clustered together. A high density indicates that the agent is exploring familiar topics.
-- Embedding Variance ($V$): This measures the variance of the embeddings of recent reflection topics. A low variance indicates that the agent is exploring familiar topics.
+But this does not guarantee that the topic selected is new. To prevent this, rut detection is performed against reference vectors—specifically, the top 10 nearest vector embeddings drawn from active working memory and the last five days of reflection journals:
+- **Embedding Density ($D$)**: Measures how densely the reference embeddings are clustered together. A high density indicates that the agent is already familiar with the topic.
+- **Embedding Variance ($V$)**: Measures the spread of the reference embeddings. A low variance indicates a tight, repetitive cluster.
 
 When $D$ is high and $V$ is low, the seed is considered to be in a rut. In such cases, an LLM is used to generate 5 neighboring topics that are randomly selected with an inverse softmax weighting based on similarity to the current seed. This ensures that the agent explores topics that are related to its current knowledge but not too close to what it already knows. 
 
 ---
 
-## Phase 2: Topic Viability Check
+## Phase 2: Topic Viability Check (The Triage Gate)
 
-Selecting a seed topic in Phase 1 ensures novelty, but novelty alone does not guarantee utility. So, before exploring the seed topic, it is important to check its viability. This is done by using a low-temperature LLM evaluation where the seed is assigned a utility score based on how likely it is to yield useful information. The following rubric is utilized:
+Selecting a seed topic in Phase 1 ensures novelty, but it does not guarantee utility. Before exploration, MAVIS checks its viability using a low-temperature LLM evaluator that scores the seed against four discrete anchored utility tiers:
 
 ```
-- 1.00 (High Utility): Directly yields concrete operational rules, CLI flags, DAG execution heuristics, error recovery procedures, or explicit assistant interaction policies (e.g., communication pacing, memory retention thresholds, confirmation vs. execution boundaries).
-- 0.75 (Actionable Pattern): Specific API convention, systems heuristic, or validated human-assistant cognitive pattern (e.g., progressive disclosure, task decomposition model, cognitive load reduction) with clear practical utility.
+- 1.00 (High Utility): Directly yields concrete operational rules, CLI flags, DAG execution heuristics, error recovery procedures, or explicit assistant interaction policies.
+- 0.75 (Actionable Pattern): Specific API convention, systems heuristic, or validated human-assistant cognitive pattern with clear practical utility.
 - 0.40 (Marginal / General Theory): High-level abstract theory, general philosophy, or generic advice with no concrete operational translation.
 - 0.00 (Reject / Trivia): Generic trivia, empty self-help platitudes, surface-level definitions, subjective opinion, or common knowledge.
 ```
-If the utility score meets or exceeds the threshold (typically $\ge 0.70$), the seed advances to exploration; otherwise, it is immediately aborted with zero further tokens spent.
+
+Because the passing threshold is set to $0.70$, this check passes for only seeds evaluated as an *"Actionable Pattern"* ($0.75$) or *"High Utility"* ($1.00$) are viable for exploration. Topics that amount to abstract philosophy or trivia are rejected.
 
 ---
 
 ## Phase 3: Exploration Loop
 
-Exploration is done in a loop where two subagents, Generator and Critic, work against each other. Generator tries to generate hypotheses from the seed and gather evidence from web and local codebase. Critic reviews the hypothesis and the evidence and tries to find flaws in the hypothesis and the evidence. The Generator tries to address the flaws and tries to generate a better hypothesis and gather better evidence. This loop continues until the critic accepts the hypothesis or the iteration limit is reached, at which point if the critic hasn't rejected the hypothesis, it is considered accepted and proceeds to Phase 4.
+Exploration is done in an adversarial loop where two subagents, Generator and Critic, work against each other. Generator tries to generate hypotheses from the seed and gather evidence from web and local codebase. Critic reviews the hypothesis and the evidence and tries to find logic flaws and vulnerabilities in the hypothesis and the evidence. The Generator tries to address the flaws and tries to generate a better hypothesis and gather better evidence. This loop continues until the critic accepts the hypothesis or the iteration limit is reached, at which point if the critic hasn't rejected the hypothesis, it is considered accepted and proceeds to Phase 4.
 
 ---
 
 ## Phase 4: Semantic Delta Check and Storage
 
-The novelty of the final hypothesis is measured using the following formula:
+Even if an insight survives the adversarial loop, it must be checked against existing knowledge to prevent duplicate entries. The novelty of the synthesis is measured using the Semantic Delta:
 
-$$\text{Semantic Delta } (\delta) = \max\Big(0, 1 - \max_{s \in \text{memory}} \text{similarity}(\text{hypothesis}, s)\Big)$$
+$$\text{Semantic Delta } (\delta) = \max\Big(0, 1 - \max_{s \in \text{ref\_vectors}} \text{similarity}(\text{synthesis}, s)\Big)$$
 
-If the delta exceeds the threshold (e.g., $\delta \ge 0.25$), the hypothesis is considered novel and is stored in long-term memory as a new shard. If the delta is below the threshold, the hypothesis is discarded.
+Where $\text{ref\_vectors}$ represents the nearest reference embeddings from working memory and recent self-reflections. If $\delta < 0.25$, the insight is deemed a paraphrase of existing knowledge and discarded.
+
+If $\delta \ge 0.25$, the entry is persisted to a JSON with a pending status/
 
 ---
 
@@ -108,9 +108,9 @@ If the delta exceeds the threshold (e.g., $\delta \ge 0.25$), the hypothesis is 
 
 Background reflection runs under strict security constraints:
 
-* **Mandatory `whitelist_only` Lease**: The reflection worker must acquire a `whitelist_only` lease from ONI. If the lease cannot be granted, it fails closed. It cannot run shell commands or write outside its dedicated reflection memory directory.
-* **Quarantined Evidence**: Web search results and local file observations are tagged with quarantine delimiters, preventing indirect prompt injections from hijacking the critic.
-* **Human-in-the-Loop Journal**: All output is appended to `memories/reflections/journal.json` marked as `pending_review` and cannot be read by the `Interpreter` until they are explicitly verified in the Streamlit dashboard.
+* **Mandatory `whitelist_only` Lease**: The reflection worker must acquire a `whitelist_only` approval from ONI. If it cannot be granted, it fails. This prevents unintended behaviour by the system.
+* **Quarantined Evidence**: Web search results and local file observations are wrapped in strict quarantine delimiters, preventing prompt injection attacks from hijacking the critic or generator prompts.
+* **Human-in-the-Loop Journal**: All generated insights remain quarantined with `verified: false`. They cannot be retrieved by the `Interpreter` or used for DAG planning until the user explicitly reviews and approves them in the Streamlit dashboard.
 
 ---
 
