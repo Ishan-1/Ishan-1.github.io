@@ -96,7 +96,7 @@ Interpreter identifies missing capability
 ```
 
 1. **Code Generation**: `ToolBuilder` retrieves past tooling patterns from long-term memory (`memories/toolbuilder/`) and generates a self-contained Python module.
-2. **Static AST Import Scan**: Before any generated code is executed, `ToolTester` parses its Abstract Syntax Tree (AST) to check for forbidden raw imports (`subprocess`, `os`, `socket`, `requests`). All I/O must route through ONI primitives. If an unapproved import is detected, the build fails immediately.
+2. **Static AST Import Scan**: Before any generated code is executed, `ToolTester` parses its Abstract Syntax Tree (AST) to check for forbidden imports and shell-execution calls (`subprocess`, `socket`, `os.system`, `os.popen`, etc.). If an unapproved import or execution call is detected, the build fails immediately.
 3. **Automated Pytest in Isolated Subprocess**: `ToolBuilder` writes companion test cases and executes `pytest` inside a child subprocess (`run_tool.py`) with a 30-second hard timeout.
 4. **ToolDebugger Retry Loop**: If tests fail or syntax errors occur, the failure traceback is fed into `ToolDebugger` for bounded retries (up to 3 attempts). Successful fixes are recorded in memory so future builds avoid the same bug.
 5. **Registration**: Once all tests pass, the tool is registered in `commands_list.json` and indexed in Neo4j.

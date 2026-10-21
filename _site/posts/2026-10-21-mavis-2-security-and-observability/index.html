@@ -145,7 +145,7 @@
 
 <h2 id="oni-three-primitives-and-two-evaluation-phases">ONI: Three Primitives and Two Evaluation Phases</h2>
 
-<p>No tool, background worker, or subagent in MAVIS is permitted to import Python’s standard <code class="language-plaintext highlighter-rouge">os</code>, <code class="language-plaintext highlighter-rouge">subprocess</code>, <code class="language-plaintext highlighter-rouge">socket</code>, or <code class="language-plaintext highlighter-rouge">requests</code> modules directly. Instead, all I/O is channeled through three primitive functions:</p>
+<p>For synthesized tools, direct subprocess- and socket-style imports as well as shell-execution calls are rejected at build time. Instead, tools are expected to channel system, network, and file I/O through three primitive functions:</p>
 
 <ul>
   <li><code class="language-plaintext highlighter-rouge">call_system_command(command, params)</code> — executes sanctioned OS-level commands.</li>
@@ -183,8 +183,7 @@
 
 <ol>
   <li><strong>Subprocess Isolation</strong>: If a generated tool crashes, segfaults, or times out (30s hard limit), the parent MAVIS process remains completely unharmed.</li>
-  <li><strong>Restricted Environment</strong>: Sensitive API keys and environment variables not declared by the tool are stripped from the child process.</li>
-  <li><strong>AST Import Scanner</strong>: Before any synthesized tool code is executed, <code class="language-plaintext highlighter-rouge">ToolTester</code> parses its Python Abstract Syntax Tree (AST) to check for forbidden imports (<code class="language-plaintext highlighter-rouge">subprocess</code>, <code class="language-plaintext highlighter-rouge">os</code>, raw network calls). If found, the build fails before any code executes.</li>
+  <li><strong>AST Import Scanner</strong>: Before any synthesized tool code is executed, <code class="language-plaintext highlighter-rouge">ToolTester</code> parses its Python Abstract Syntax Tree (AST) to reject direct low-level imports (<code class="language-plaintext highlighter-rouge">subprocess</code>, <code class="language-plaintext highlighter-rouge">socket</code>, <code class="language-plaintext highlighter-rouge">paramiko</code>, etc.) and dangerous shell execution calls (such as <code class="language-plaintext highlighter-rouge">os.system</code> and <code class="language-plaintext highlighter-rouge">os.popen</code>). If detected, the build fails before any code executes.</li>
 </ol>
 
 <hr />
@@ -199,7 +198,7 @@
 <p>Aside from ONI, the following measures are present to enhance security:</p>
 <ul>
   <li><strong>Output Sanitization</strong>: Tool and subagent outputs pass through delimiter sanitization to prevent untrusted content from injecting prompt directives into dependent DAG nodes.</li>
-  <li><strong>Approved Write Paths</strong>: ONI restricts file writes strictly to <code class="language-plaintext highlighter-rouge">tools/</code>, <code class="language-plaintext highlighter-rouge">tests/</code>, <code class="language-plaintext highlighter-rouge">memories/</code>, and <code class="language-plaintext highlighter-rouge">logs/</code>. Critical files like <code class="language-plaintext highlighter-rouge">.env</code> and root directory configurations are write-protected so generated code cannot overwrite API keys or configurations.</li>
+  <li><strong>Directory Write Allowances</strong>: Filesystem writes and deletes are checked against configured directory prefixes (such as <code class="language-plaintext highlighter-rouge">tools/</code>, <code class="language-plaintext highlighter-rouge">tests/</code>, <code class="language-plaintext highlighter-rouge">memories/</code>, <code class="language-plaintext highlighter-rouge">logs/</code>, and <code class="language-plaintext highlighter-rouge">data/scratch/</code>). Unlisted file operations outside approved locations trigger a confirmation prompt in <code class="language-plaintext highlighter-rouge">ask</code> mode and are denied in <code class="language-plaintext highlighter-rouge">whitelist_only</code> mode.</li>
   <li><strong>Background Task Trust Isolation</strong>: Memory workers and reflection loops are hardcoded to <code class="language-plaintext highlighter-rouge">whitelist_only</code>. Even if an interactive session runs in <code class="language-plaintext highlighter-rouge">yolo</code> mode, background tasks never inherit elevated privileges.</li>
 </ul>
 

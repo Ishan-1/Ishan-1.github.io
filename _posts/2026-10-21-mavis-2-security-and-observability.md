@@ -15,7 +15,7 @@ To be useful, an AI assistant must be able to interact with the system and netwo
 
 ## ONI: Three Primitives and Two Evaluation Phases
 
-No tool, background worker, or subagent in MAVIS is permitted to import Python's standard `os`, `subprocess`, `socket`, or `requests` modules directly. Instead, all I/O is channeled through three primitive functions:
+For synthesized tools, direct subprocess- and socket-style imports as well as shell-execution calls are rejected at build time. Instead, tools are expected to channel system, network, and file I/O through three primitive functions:
 
 * `call_system_command(command, params)` — executes sanctioned OS-level commands.
 * `call_network(url, data, method, ...)` — executes all outbound HTTP/network requests.
@@ -49,8 +49,7 @@ To avoid stopping execution in the middle of a multi-node DAG, ONI evaluates per
 Generated tools run in a separate **child subprocess** using a lightweight wrapper that helps achieve the following:
 
 1. **Subprocess Isolation**: If a generated tool crashes, segfaults, or times out (30s hard limit), the parent MAVIS process remains completely unharmed.
-2. **Restricted Environment**: Sensitive API keys and environment variables not declared by the tool are stripped from the child process.
-3. **AST Import Scanner**: Before any synthesized tool code is executed, `ToolTester` parses its Python Abstract Syntax Tree (AST) to check for forbidden imports (`subprocess`, `os`, raw network calls). If found, the build fails before any code executes.
+2. **AST Import Scanner**: Before any synthesized tool code is executed, `ToolTester` parses its Python Abstract Syntax Tree (AST) to reject direct low-level imports (`subprocess`, `socket`, `paramiko`, etc.) and dangerous shell execution calls (such as `os.system` and `os.popen`). If detected, the build fails before any code executes.
 
 ---
 ## Accepted Limitation: Policy & Audit, Not Complete Sandboxing
@@ -61,7 +60,7 @@ Generated tools run in a separate **child subprocess** using a lightweight wrapp
 ## Additional Security Measures
 Aside from ONI, the following measures are present to enhance security:
 - **Output Sanitization**: Tool and subagent outputs pass through delimiter sanitization to prevent untrusted content from injecting prompt directives into dependent DAG nodes.
-- **Approved Write Paths**: ONI restricts file writes strictly to `tools/`, `tests/`, `memories/`, and `logs/`. Critical files like `.env` and root directory configurations are write-protected so generated code cannot overwrite API keys or configurations.
+- **Directory Write Allowances**: Filesystem writes and deletes are checked against configured directory prefixes (such as `tools/`, `tests/`, `memories/`, `logs/`, and `data/scratch/`). Unlisted file operations outside approved locations trigger a confirmation prompt in `ask` mode and are denied in `whitelist_only` mode.
 - **Background Task Trust Isolation**: Memory workers and reflection loops are hardcoded to `whitelist_only`. Even if an interactive session runs in `yolo` mode, background tasks never inherit elevated privileges.
 
 ---

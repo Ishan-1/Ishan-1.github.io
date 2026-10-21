@@ -48,9 +48,9 @@
   * *Runtime check*: Defense-in-depth confirmation at execution time.
   * *IPC Prompts*: Child processes surface approval prompts to the parent shell. Background tasks auto-deny greylisted commands if no user session is active.
 * **Tool Sandboxing & Static Analysis**:
-  * Tools execute in child subprocesses (`run_tool.py`) with restricted environment variables and a 30s timeout.
-  * Generated code is AST-scanned by `ToolTester` before execution to detect forbidden raw imports (`subprocess`, `os`, `socket`, `requests`, etc.).
-  * Approved write paths: `tools/`, `tests/`, `memories/`, `logs/`. `.env` and root are write-protected.
+  * Tools execute in child subprocesses (`run_tool.py`) with process isolation and a 30s timeout.
+  * Generated code is AST-scanned by `ToolTester` before execution to detect forbidden imports (`subprocess`, `socket`, etc.) and shell-execution calls (`os.system`, `os.popen`, etc.).
+  * Directory write allowances: Configured prefixes include `tools/`, `tests/`, `memories/`, `logs/`, `data/`, and `data/scratch/`. Unlisted paths require user confirmation under `ask` mode and are denied under `whitelist_only`.
 
 ### B. Planning & Execution (Heterogeneous DAGs)
 * **DAG vs. ReAct**: Rejects free-form ReAct loops at the orchestration level. The `Interpreter` compiles user intent into a validated, acyclic Directed Acyclic Graph (DAG) executed in topological order.
