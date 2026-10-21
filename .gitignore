@@ -1,1 +1,5 @@
 context.md
+_site/
+.jekyll-cache/
+.sass-cache/
+.jekyll-metadata

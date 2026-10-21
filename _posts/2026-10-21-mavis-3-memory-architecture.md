@@ -9,87 +9,64 @@ summary: "How MAVIS manages context across sessions without catastrophic forgett
 ---
 
 ## To Remember or to Forget?
-Using an AI agent that remembers nothing is like interacting with a person who forgets what you said a minute ago. On the flip side, trying to remember everything is a recipe for disaster: bloated context degrades model reasoning, pollutes prompts with conversational noise, and drives up token costs.
+Using an AI agent that remembers nothing is like interacting with a person who forgets what you said a minute ago. On the flip side, trying to remember everything is a recipe for disaster as dumping raw chat history into context memory is a sure way to blow up the entire context window with irrelevant content to the query.
 
-Therefore, dumping raw chat history into context memory is a sure way to blow up the entire context window with irrelevant content to the query. This can be handled by doing a semantic retrieval of the relevant memory from the vector database and injecting top-K similarity matches into the context window. But this simple fix breaks down quickly in practice. If you told the agent three months ago that you use VS Code, and yesterday instructed it that you switched to Neovim, similarity search retrieves both statements. The LLM is left to guess which one is authoritative. 
+One way to handle this is by doing a semantic retrieval of the relevant memory from the vector database and injecting top-K similarity matches into the context window. But this has its own issues. If you told the agent three months ago that you use VS Code, and yesterday told it that you switched to Neovim, similarity search retrieves both statements when retrieving your preference and the LLM has to decide which one is correct.
 
 Even worse, unpartitioned memory violates basic security boundaries: why should an autonomous code-generation tool synthesizing a bash command have read access to your personal notes or calendar entries?
 
 Therefore, the central question I considered when designing the memory was "What to Remember and What to Forget?".
 
-To solve this, MAVIS models memory after human cognitive consolidation: three distinct retention tiers with explicit promotion gates, and topic-subscribed knowledge graphs.
+To solve this, MAVIS models memory after human memory: three distinct retention tiers with explicit promotion criteria, and topic-subscribed knowledge graphs for long-term memory.
 
 ---
 
 ## Three Tiers of Cognitive Retention
+Analogous to human memory, MAVIS has the following kinds of memory with varying retention periods and promotion triggers to store different kinds of data:
 
-```
-[ Working Memory ] (In-memory buffer, capped at min(MAX_TOKENS, 0.4 * Context))
-        │
-        ▼ (In-session compaction on overflow / 15-min background worker)
-[ Short-Term Memory ] (Rolling 7-day daily JSON files + ChromaDB vector collection)
-        │
-        ▼ (8-hr background consolidation worker: directive & keyword gating)
-[ Long-Term Memory ] (Topic-Subscribed Neo4j Knowledge Graph + Partitioned JSON)
-```
+| Tier | Purpose |  Lifetime | Storage Format | Promotion / Persistence Trigger |
+|---|---|---|---|---|
+| **Working Memory** | Store current conversational context| Active session | In-memory Python list | Session turn initialization |
+| **Short-Term Memory** | Store significant recent user interactions and history across conversations|  7 Days (rolling) | Daily JSON files + vector embeddings | 4 triggers (emotion, directive, $\ge 3\times$ repetition, tool failure) via 15-min worker |
+| **Long-Term Memory** | Store permanent data such as user preferences, directives, patterns, etc. |Indefinite | Neo4j property graph + partitioned JSON | Directive + keyword gating via 8-hr worker; direct pattern/fix writes from ToolBuilder & Debugger |
 
-| Tier | Lifetime | Storage Format | Promotion / Persistence Trigger |
-|---|---|---|---|
-| **Working Memory** | Active session | In-memory Python list | Session turn initialization |
-| **Short-Term Memory** | 7 Days (rolling) | Daily JSON files (`YYYY-MM-DD.json`) + ChromaDB | 4 triggers (emotion, directive, $\ge 3\times$ repetition, tool failure) via 15-min worker |
-| **Long-Term Memory** | Indefinite | Neo4j property graph + partitioned JSON (`behaviours`, `facts`, `patterns`, `fixes`) | Directive + keyword gating via 8-hr worker; direct pattern/fix writes from ToolBuilder & Debugger |
 
 ---
+
+## Promotion Mechanisms
 
 ### Working Memory → Short-Term Promotion (15-Minute Worker)
 
-Working memory holds raw turns in an in-memory buffer. When the buffer approaches token capacity, an in-memory compaction step summarizes older conversational exchanges.
+Working memory holds the session memory in an in-memory buffer. When working memory exceeds its token limit, an inline compaction step automatically summarizes the older conversational half.
 
-In parallel, a background worker (`short_term_worker.py`) runs every 15 minutes during active sessions (guarded to skip if the session has been idle for $>30$ minutes). It inspects unprocessed turns and promotes an entry to short-term daily JSON storage and ChromaDB if any of four triggers fire:
+In parallel, a background worker runs every 15 minutes during active session. It inspects unprocessed working memory and promotes an entry to short-term memory if any of four triggers fire:
 
-1. **Emotion Strength**: Detected user urgency, frustration, or excitement (`emotion_strength == "high"` or $\ge 0.75$).
-2. **Explicit Directive**: The turn contains a clear preference or rule (`directive == True`).
+1. **Emotion Strength**: Detected high user urgency, frustration, or excitement.
+2. **Explicit Directive**: The turn contains a clear preference or rule.
 3. **Repetition**: A turn's embedding matches previous turns with cosine similarity $\ge 0.85$ at least 3 times within a 50-turn window.
-4. **Tool Failure**: The entry records a runtime tool fault (`tool_failure == True`), preserving context for subsequent debugging.
+4. **Tool Failure**: The entry records a runtime tool fault, preserving context for subsequent debugging.
+
+> **Note**: Signals 1 and 2 are extracted by the Interpreter upon receiving the user input as categorical and boolean variables respectively instead of floating point ranges to avoid noisy value outputs by the LLM.
 
 ---
 
-### Short-Term → Long-Term Promotion (8-Hour Worker & Subsystems)
+### Short-Term → Long-Term Promotion (8-Hour Worker)
 
 Promoting something to indefinite long-term storage requires much higher confidence. In MAVIS, this is split into two mechanisms:
 
-#### 1. The Periodic Consolidation Worker (`long_term_worker.py`)
-Every 8 hours (480 minutes via the internal task runner), a worker scans short-term turns added since its last persisted cursor (`lt_cursor_path`). Unlike short-term promotion, emotion and repetition alone **cannot** promote an entry to long-term memory.
+#### 1. The Background Promotion Worker 
+Every 8 hours, a background worker scans short-term turns added since the last scan. Unlike short-term promotion, emotion and repetition alone cannot promote an entry to long-term memory. The following criteria are used for determining whether to promote an entry to long-term memory:
+1. Is this a user directive determined by the `is_directive` variable? 
+2. Are there explicit keywords such as 'always', 'never', 'remember forever', etc. present in the entry? 
 
-The worker evaluates entries through `should_promote_long_term()`:
-- **Mandatory Hard Gate**: The turn must have `directive == True` (or legacy `intent_strength > 0.85`). If `directive` is false, promotion is rejected immediately.
-- **Persistent Behavioral Keywords**: If the content contains terms like `"always"`, `"never"`, `"permanently"`, `"from now on"`, `"every time"`, or `"prefer"`, it is promoted as a **`behaviour`** (`behaviours.json`).
-- **Explicit Fact Keywords**: If the content contains terms like `"remember forever"`, `"remember this permanently"`, `"never forget"`, or `"remember that"`, it is promoted as a **`fact`** (`facts.json`).
-- **Knowledge Graph Extraction**: When an entry qualifies, an asynchronous extractor (`extract_facts_from_turn`) runs an LLM pass to convert the turn into structured `(subject, predicate, object)` triples and writes them into Neo4j.
-- **7-Day TTL Pruning**: After processing delta turns, the worker deletes short-term daily JSON files older than 7 days and purges expired date ranges from the ChromaDB collection.
+Based on the satisfied criteria, the entry is converted by an LLM into a structured `(subject, predicate, object)` triple and stored in Neo4j.
 
-#### 2. Direct Subsystem Writes (No Background Worker Wait)
-Specialized autonomous subsystems bypass the 8-hour worker entirely when recording verified technical knowledge:
-- **`ToolBuilder`**: Once a synthesized tool passes static analysis and sandbox tests, it immediately calls `write_pattern()`, persisting the function signature and conventions into `patterns.json` and creating a tool definition node in Neo4j.
-- **`PipelineDebugger` & `AgentBuilder`**: When a debugging loop successfully fixes a tool execution fault or agent prompting failure, it immediately calls `write_fix()` / `write_agent_fix()`, logging the failure mode and verified patch into `fixes.json` and adding fix relationships to Neo4j.
+#### 2. Direct Subsystem Writes 
+Certain autonomous components bypass the periodic worker entirely when persisting verified technical knowledge. Once `ToolBuilder` confirms that a synthesized tool passes static analysis and sandbox tests, it immediately calls `write_pattern()`, logging the function signature and conventions to `patterns.json` and creating a tool definition node in Neo4j. Similarly, when `PipelineDebugger` or `AgentBuilder` resolves a tool failure or prompting fault, it immediately calls `write_fix()` / `write_agent_fix()`, logging the verified patch to `fixes.json` and establishing fix relationships in the knowledge graph.
 
 ---
 
-## Why Discrete Labels Beat Continuous Floats
 
-Many agent architectures ask LLMs to emit continuous floating-point scores between `0.0` and `1.0` for sentiment, importance, or intent strength.
-
-In practice, LLM-generated floats are noisy, uncalibrated pseudo-math. A score of `0.78` vs `0.84` does not reflect a meaningful probability distribution—it reflects prompt phrasing quirks and sampling noise.
-
-Instead of parsing fragile floats, MAVIS classifies entries using **discrete categories** and boolean flags:
-- **Emotion**: `"low"`, `"medium"`, `"high"`
-- **Directive**: `True` / `False`
-
-These fields are extracted directly in the primary `Interpreter` response schema. Because they are returned as part of the normal turn comprehension pass, classification incurs zero additional API round-trips or latency overhead.
-
-> **Engineering Principle**: Reject continuous LLM-emitted confidence floats in favor of discrete enum buckets and binary flags that map directly to deterministically testable state transitions.
-
----
 
 ## Topic-based Knowledge Graphs
 
@@ -98,21 +75,64 @@ Different components in MAVIS require fundamentally different kinds of memory:
 - The **ToolBuilder** and **PipelineDebugger** need OS specifications, Python runtime details, and prior fix patterns.
 - **Background Tasks** need execution state and workflow metadata.
 
-Mixing all of this into a single global vector store creates context cross-contamination and introduces major security risks. Interacting with memory is therefore modeled as a **publisher-subscriber hierarchy** over partitioned Neo4j graphs and JSON stores:
+Mixing all of this into a single vector DB results in context cross-contamination and opens up attacks that may target a code-generation component to exfiltrate user data. Interacting with memory is therefore modeled as a **publisher-subscriber model** over partitioned Neo4j graphs and JSON stores. The following table illustrates the components and what they publish and subscribe to.
 
 | Component Namespace | Subscribed Read Topics | Write Topic | User Personal Data Access |
 |---|---|---|---|
-| **Interpreter** | `["user.*", "env.*", "tooling.*", "tasks.*"]` | `user.episodic` | ✅ Permitted |
-| **ToolBuilder / Debugger** | `["env.os", "env.python", "tooling.*"]` | `tooling.patterns` | ❌ **Hard Blocked** |
+| **Interpreter** | `["user.*", "env.*", "tooling.*", "agents.*", "debugging.*"]` | `user.profile` | ✅ Permitted |
+| **ToolBuilder** | `["env.*", "tooling.*", "debugging.*"]` | `tooling.tools` | ❌ **Hard Blocked** |
+| **Debugger** | `["env.*", "tooling.*", "debugging.*"]` | `debugging.fixes` | ❌ **Hard Blocked** |
+| **AgentBuilder / AgentDebugger** | `["env.*", "agents.*", "debugging.*"]` | `agents.debugging` | ❌ **Hard Blocked** |
+| **PipelineDebugger** | `["env.*", "tooling.*", "agents.*", "debugging.*"]` | `debugging.pipeline_fixes` | ❌ **Hard Blocked** |
 | **Background Tasks** | `["env.*", "tooling.*", "tasks.*"]` | `tasks.workflow` | ❌ **Hard Blocked** |
 
-Code-generating components like `ToolBuilder` are **strictly barred** from querying personal user namespaces (`user.*`). Even if a prompt injection exploits the tool synthesis pipeline, it cannot read personal memory or credentials.
+This allows for cross-subsystem memory sharing as any debugging component can access the debugging namespace and learn from previous debugging sessions by other debugging components. For example, `ToolBuilder` can access `debugging.*` namespace and learn from previous debugging sessions by `PipelineDebugger` or `AgentDebugger`. 
+
+This ensures that code-generating components like `ToolBuilder` and `Debugger` are **strictly barred** from querying personal user namespaces (`user.*`). Even if prompt injection targets the tool synthesis prompt, it cannot fetch user data from the agent's memory.
+
 
 ### Resolving Contradictions: Superseding, Not Deleting
 
 User preferences and environment states evolve over time. When a new 1-to-1 functional predicate arrives (e.g., updating `PREFERS_EDITOR = "Neovim"` where `PREFERS_EDITOR = "VS Code"` previously existed), the previous edge is not erased. 
 
 Instead, the graph engine marks the prior relationship edge as inactive with an expiration timestamp. The historical record is preserved for auditing and rollbacks, but subscriber queries filter for active edges only. This prevents vector search's classic failure mode: surfacing two contradictory facts with equal weight.
+
+---
+
+## How Components Use Memory
+The final and the most important piece in the memory design is actually ensuring that the memory is properly utilized by the different components. They utilize the memory in the following way for injecting context in the prompt: 
+
+```
+Component Query (e.g., user prompt or tool error)
+      │
+      ├─► Long-Term Memory ─────┬─► Neo4j Graph: Active structured facts (topic-scoped)
+      │                         └─► Partitioned JSON: Prior patterns, fixes, & peer records
+      │
+      ├─► Short-Term Memory ────► Rolling 7-day daily logs (recent interactions & faults)
+      │
+      └─► Working Memory ───────► Active in-session turns + compaction summaries
+      │
+      ▼
+Unified Injected Prompt Context
+```
+
+Therefore, this structured injection is tailored to the needs of each subsystem:
+
+1. **The Interpreter (Intent & Planning)**:
+   Before synthesizing a DAG, the Interpreter retrieves active user preferences, environment constraints, and recent conversational turns. If the user previously instructed *"always format git diffs in unified syntax"*, the active fact is injected into the planner prompt, ensuring the generated pipeline obeys the rule without the user having to repeat themselves.
+
+2. **The PipelineDebugger (Fault Recovery)**:
+   When a DAG node throws an exception, the debugger queries memory with the failed function name and error message:
+   ```python
+   memory_priors = memory_store.retrieve_context(
+       f"{func_name} {error_message}",
+       extra_namespaces=["debugger", "toolbuilder"]
+   )
+   ```
+   By injecting verified fix patterns from past debugging sessions, the debugger avoids repeating known dead-ends and patches runtime errors in a single shot.
+
+3. **The ToolBuilder (Tool Synthesis)**:
+   When writing a new tool, it pulls past synthesis patterns and environment specifications, ensuring newly generated code conforms to runtime contracts (like return status codes and error wrappers) without starting from scratch.
 
 ---
 
