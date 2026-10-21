@@ -17,6 +17,7 @@ This describes what I have always felt is missing in many AI assistants: they on
 I designed the **Autonomous Reflection Engine** around one foundational principle:
 
 > **"Exploration is good but it should be worthwhile."**
+
 ---
 
 ## System Architecture
