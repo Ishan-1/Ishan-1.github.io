@@ -15,7 +15,7 @@ To be useful, an AI assistant must be able to interact with the system and netwo
 
 ## ONI: Three Primitives and Two Evaluation Phases
 
-For synthesized tools, direct subprocess- and socket-style imports as well as shell-execution calls are rejected at build time. Instead, tools are expected to channel system, network, and file I/O through three primitive functions:
+For tools, direct subprocess and socket-style imports as well as shell-execution calls are rejected at build time. Instead, tools are expected to use system, network, and file I/O through the following primitive functions:
 
 * `call_system_command(command, params)` — executes sanctioned OS-level commands.
 * `call_network(url, data, method, ...)` — executes all outbound HTTP/network requests.
@@ -39,27 +39,28 @@ To avoid stopping execution in the middle of a multi-node DAG, ONI evaluates per
 ```
 
 ### Trust Tiers
-* **`whitelist_only`**: Auto-approves whitelisted tools and silently denies all others. Used by background workers and autonomous reflection to ensure they never run unapproved operations.
-* **`ask`** (Default): Greylisted operations (such as installing third-party packages or modifying critical directories) surface a human-in-the-loop confirmation prompt.
-* **`yolo`**: Executes commands without interactive confirmation prompts. Intended strictly as an explicit opt-in for tool building and test cycles.
+* `whitelist_only`: Auto-approves whitelisted tools and silently denies all others. Used by background workers and autonomous reflection to ensure they never run unapproved operations.
+* `ask` (Default): Greylisted operations (such as installing third-party packages or modifying critical directories) surface a human-in-the-loop confirmation prompt.
+* `yolo`: Executes commands without interactive confirmation prompts. Intended strictly as an explicit opt-in for tool building and test cycles.
 
 ---
 
 ## Tool Sandboxing & AST Static Analysis
-Generated tools run in a separate **child subprocess** using a lightweight wrapper that helps achieve the following:
+Generated tools run in a separate child subprocess using a lightweight wrapper that helps achieve the following:
 
-1. **Subprocess Isolation**: If a generated tool crashes, segfaults, or times out (30s hard limit), the parent MAVIS process remains completely unharmed.
-2. **AST Import Scanner**: Before any synthesized tool code is executed, `ToolTester` parses its Python Abstract Syntax Tree (AST) to reject direct low-level imports (`subprocess`, `socket`, `paramiko`, etc.) and dangerous shell execution calls (such as `os.system` and `os.popen`). If detected, the build fails before any code executes.
+1. **Subprocess Isolation**: If a generated tool crashes, segfaults, or times out (30s hard limit), the parent process remains completely unharmed.
+2. **Restricted Environment**: The child subprocess does not inherit arbitrary parent credentials. Sensitive LLM API keys and parent secrets are stripped using an explicit environment allowlist (passing only system variables like `PATH` and explicit `MAVIS_*` runtime variables).
+3. **AST Import Scanner**: Before any synthesized tool code is executed, `ToolTester` checks and rejects direct low-level imports (`subprocess`, `socket`, `paramiko`, etc.) and dangerous shell execution calls (such as `os.system` and `os.popen`). If detected, no tool code is executed.
 
 ---
 ## Accepted Limitation: Policy & Audit, Not Complete Sandboxing
 
-> **Design Boundary**: ONI is designed as an intentional **policy gate and audit layer**, *not* a bulletproof sandbox against hostile, malicious code. An attacker with arbitrary code injection could bypass the AST scanner via dynamic runtime imports. Because MAVIS is a single-user personal tool designed for someone that is technologically aware and responsible, this trade-off provides safety against unintended assistant mistakes without requiring heavyweight virtual machines.
+> **Design Boundary**: ONI is designed as an intentional policy gate and audit layer, *not* a bulletproof sandbox against hostile, malicious code. An attacker with arbitrary code injection could bypass the AST scanner via dynamic runtime imports. Because MAVIS is a single-user personal tool designed for someone that is technologically aware and responsible, this trade-off provides safety against unintended assistant mistakes without requiring heavyweight virtual machines.
 
 ---
 ## Additional Security Measures
 Aside from ONI, the following measures are present to enhance security:
-- **Output Sanitization**: Tool and subagent outputs pass through delimiter sanitization to prevent untrusted content from injecting prompt directives into dependent DAG nodes.
+- **Output Sanitization**: Tool and subagent outputs pass through delimiter sanitization and quarantine wrappers to prevent untrusted content from prompt injection into dependent DAG nodes.
 - **Directory Write Allowances**: Filesystem writes and deletes are checked against configured directory prefixes (such as `tools/`, `tests/`, `memories/`, `logs/`, and `data/scratch/`). Unlisted file operations outside approved locations trigger a confirmation prompt in `ask` mode and are denied in `whitelist_only` mode.
 - **Background Task Trust Isolation**: Memory workers and reflection loops are hardcoded to `whitelist_only`. Even if an interactive session runs in `yolo` mode, background tasks never inherit elevated privileges.
 

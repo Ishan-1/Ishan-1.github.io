@@ -40,8 +40,8 @@ User Prompt
 
 ### Key Architectural Properties
 1. **Topological Sort**: Dependencies are mathematically resolved using topological sort before the first tool runs.
-2. **Deterministic**: Since it is directed and acyclic, it will never result in an indefinite loop.
-3. **Data-Plane Isolation (The Answerer Node)**: Raw tool outputs flow downstream to dependent nodes and finally into a dedicated `Answerer` node. Untrusted tool output **never** loops back to the high-level planner and therefore, the pipeline avoids the security issues associated with free form ReAct loops.
+2. **Bounded Execution**: Since the graph is directed and acyclic, it mathematically guarantees termination. 
+3. **Data-Plane Isolation (The Answerer Node)**: Raw tool outputs flow downstream to dependent nodes and finally into a dedicated `Answerer` node. Untrusted tool output **never** loops back to the high-level planner within a single DAG, avoiding the control-plane injection risks associated with free-form ReAct loops.
 
 ---
 
@@ -54,16 +54,16 @@ MAVIS categorizes every DAG node into one of four execution types:
 | **Tools** | Deterministic local Python function | Automated `pytest` in isolated subprocess + AST import scanner |
 | **Cognitive** | Stateless, single-call LLM transform | LLM-as-judge (pytest cannot assert semantic correctness) |
 | **Subagents** | Bounded ReAct loop with scoped tools | Isolated harness with simulated tools & turn ceiling |
-| **Control (Gate)** | Conditional branching node (AST or NLP) | Deterministic AST expression parser (0 tokens, <1ms) or LLM evaluator; prunes inactive branch subtrees |
+| **Control (Gate)** | Conditional branching node (AST or NLP) | Deterministic AST expression parser (0 LLM tokens) or LLM evaluator|
 
 While deterministic tools, single-call cognitive nodes, and control gates are relatively straightforward, subagents require special handling. A subagent runs a mini ReAct loop for tasks that are inherently exploratory, but allowing free-form loops inside an assistant risks the exact non-determinism and injection vulnerabilities MAVIS should avoid. 
 
 To keep subagents bounded and safe, MAVIS enforces four constraints at runtime:
 
-1. **Payload-Blind Tool Selection**: Before a subagent begins, it must declare its tool requirements. The prompt that selects these tools only receives the subagent's role and task specification—it sees **no** raw user input payload. This ensures an attacker cannot inject prompt directives into the input data to trick the agent into requesting dangerous tools.
-2. **Frozen Scoped Toolsets**: The declared toolset is cached and frozen for the entire run. If any selected tools are greylisted, ONI prompts the user upfront. Once execution starts, the subagent cannot call or discover any tools outside this pre-approved list.
-3. **Quarantined Observations**: Any data returned from tools (such as web pages or file contents) is sanitized and wrapped in strict quarantine delimiters, preventing tool outputs from escaping their data boundary and masquerading as system prompts.
-4. **Hard Turn Ceilings**: Every subagent has a strict limit on how many ReAct iterations it can execute. If it fails to complete the task within that ceiling, it returns an explicit failure state rather than spinning in an endless loop.
+1. **Payload-Blind Tool Selection**: Before a subagent begins, it must declare its tool requirements. The prompt that selects these tools only receives the subagent's role and task specification, not the raw user input payload. This ensures that prompt injection cannot in the input cannot trick the agent into requesting dangerous tools.
+2. **Frozen Scoped Toolsets**: The declared toolset is cached and frozen for execution. Subagents cannot call or discover any tools outside this pre-approved scope, and sensitive or greylisted operations trigger interactive confirmation prompts at call time.
+3. **Quarantined Observations**: Any data returned from tools (such as web pages or file contents) is sanitized and wrapped in strict quarantine delimiters, mitigating tool outputs from acting as system prompts.
+4. **Hard Turn Ceilings**: Every subagent has a strict limit on how many ReAct iterations it can execute. If it fails to complete the task within that ceiling, it returns an explicit failure status and terminates.
 
 ---
 
@@ -154,7 +154,7 @@ High-Level User Goal: "/goal Refactor auth module"
 1. **Mathematical Acyclicity per Wave**: Each wave is independently compiled and strictly acyclic. It cannot deadlock or get trapped in a cyclic edge.
 2. **Bounded Iteration Ceiling**: The outer loop has a hard iteration cap. If the goal is not met when the ceiling is reached, the runner halts and reports the partial progress rather than burning tokens indefinitely.
 3. **Trust & ONI Leases**: Goal waves run at the session's active trust level. If an unapproved or greylisted tool is encountered, it pauses for user confirmation. Running unattended requires the `--yolo` flag, which prompts for an explicit confirmation before starting. 
-
+4. **Cross-Wave State Sharing**: While a single DAG completely isolates untrusted tool observations from the planner, multi-wave goals carry forward high-level wave outcome summaries and blackboard notes so the next wave planner knows what was accomplished.
 
 ---
 
