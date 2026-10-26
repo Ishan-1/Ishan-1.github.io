@@ -6,4 +6,4 @@ gem "jekyll-include-cache"
 gem "jekyll-feed"
 gem "jekyll-seo-tag"
 gem "webrick"
-
+gem "em-websocket", "~> 0.5"
