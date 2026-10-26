@@ -1,11 +1,20 @@
 ---
-layout: post
-title: "MAVIS Part 2 — Security & Observability: Policy Gates and Metrics Dashboard"
+layout: default
+title: "Part 2: Security & Observability"
+parent: "MAVIS Series"
+nav_order: 3
+permalink: /posts/2026-10-21-mavis-2-security-and-observability/
 date: 2026-10-21 11:00:00 +0000
 categories: [mavis, architecture]
-series: mavis
-series_part: 2
 summary: "How do you give an AI assistant system access without handing over full control? How do you observe the different parts of the system?"
+---
+
+# Part 2: Security & Observability
+{: .fs-8 }
+
+How do you give an AI assistant system access without handing over full control? How do you observe the different parts of the system?
+{: .fs-5 .fw-300 .text-grey-dk-000 }
+
 ---
 
 ## Freedom Without Chaos
@@ -84,3 +93,11 @@ Moreover, the dashboard allows the user to inspect metrics turn-by-turn by utili
 ---
 
 *In Part 3, I will discuss the memory subsystem: three tiers of retention, discrete emotion labeling, and topic-based knowledge graphs.*
+
+
+---
+
+<div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #eee; font-size: 0.9rem;">
+  <div>← Previous<br><a href="{{ "/posts/2026-10-21-mavis-1-planning-and-dynamic-tooling/" | relative_url }}"><strong>Part 1 — Planning & Dynamic Tooling</strong></a></div>
+  <div style="text-align: right;">Next →<br><a href="{{ "/posts/2026-10-21-mavis-3-memory-architecture/" | relative_url }}"><strong>Part 3 — Memory Architecture</strong></a></div>
+</div>

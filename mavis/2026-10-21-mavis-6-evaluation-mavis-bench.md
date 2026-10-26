@@ -1,12 +1,20 @@
 ---
-layout: post
-title: "MAVIS Part 6 — Evaluation: Designing MAVIS-Bench for Evaluation"
+layout: default
+title: "Part 6: Evaluation: MAVIS-Bench"
+parent: "MAVIS Series"
+nav_order: 7
+permalink: /posts/2026-10-21-mavis-6-evaluation-mavis-bench/
 date: 2026-10-21 15:00:00 +0000
 categories: [mavis, evaluation]
-series: mavis
-series_part: 6
-published: false
 summary: "Why existing benchmarks fail to evaluate MAVIS, and how MAVIS-Bench scores autonomy across 5 orthogonal axes: proactivity, completeness, resilience, safety, and efficiency."
+---
+
+# Part 6: Evaluation using MAVIS-Bench
+{: .fs-8 }
+
+Why existing benchmarks fail to evaluate MAVIS, and how MAVIS-Bench scores autonomy across 5 orthogonal axes: proactivity, completeness, resilience, safety, and efficiency.
+{: .fs-5 .fw-300 .text-grey-dk-000 }
+
 ---
 
 > NOTE: This is still Work in Progress. Therefore, some details are prone to change.
@@ -94,3 +102,11 @@ Building an autonomous personal assistant is fundamentally an engineering challe
 ---
 
 *Thank you for following along with the MAVIS Architecture Series. You can explore the project and inspect the codebase on [GitHub](https://github.com/Ishan-1/MAVIS).*
+
+
+---
+
+<div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #eee; font-size: 0.9rem;">
+  <div>← Previous<br><a href="{{ "/posts/2026-10-21-mavis-5-autonomous-self-reflection/" | relative_url }}"><strong>Part 5 — Autonomous Reflection</strong></a></div>
+  <div></div>
+</div>

@@ -1,16 +1,49 @@
 title: "Ishan Gupta"
 tagline: "Engineering Notebook & Architecture Deep-Dives"
 description: "Technical notes, systems architecture, and engineering deep-dives on autonomous AI agents and personal software."
-author:
-  name: "Ishan Gupta"
-  github: "Ishan-1"
 url: "https://ishan-1.github.io"
 baseurl: ""
+
+# Theme settings
+theme: "just-the-docs"
+remote_theme: "just-the-docs/just-the-docs"
+
+# Navigation & Search
+nav_enabled: true
+search_enabled: true
+search:
+  heading_level: 2
+  previews: 3
+  preview_words_before: 5
+  preview_words_after: 10
+  rel_url: true
+  button: false
+  focus_shortcut_key: 'k'
+
+# Auxiliary links (top right)
+aux_links:
+  "GitHub":
+    - "https://github.com/Ishan-1"
+aux_links_new_tab: true
+
+# Heading anchor links on hover
+heading_anchors: true
+
+# Mermaid diagrams support
+mermaid:
+  version: "9.1.3"
+
+# Footer
+footer_content: "Copyright &copy; 2026 Ishan Gupta. Built with Jekyll and <a href=\"https://github.com/just-the-docs/just-the-docs\">Just the Docs</a>."
+last_edit_timestamp: false
+gh_edit_link: true
+gh_edit_link_text: "Edit this page on GitHub"
+gh_edit_repository: "https://github.com/Ishan-1/Ishan-1.github.io"
+gh_edit_branch: "main"
 
 # Build settings
 markdown: kramdown
 highlighter: rouge
-permalink: /posts/:year-:month-:day-:title/
 future: true
 
 kramdown:
@@ -18,8 +51,19 @@ kramdown:
   syntax_highlighter: rouge
   math_engine: mathjax
 
+# Sass settings
+sass:
+  style: compressed
+  quiet_deps: true
+  silence_deprecations:
+    - import
+    - global-builtin
+    - color-functions
+    - slash-div
+
 plugins:
   - jekyll-seo-tag
+  - jekyll-include-cache
 
 exclude:
   - README.md
@@ -27,3 +71,5 @@ exclude:
   - Gemfile
   - Gemfile.lock
   - vendor
+  - _layouts_old
+  - _posts_old

@@ -1,13 +1,21 @@
 ---
-layout: post
-title: "MAVIS Part 0 — Overview & Motivation: Personal Agents Can Be Cool"
+layout: default
+title: "Part 0: Overview & Motivation"
+parent: "MAVIS Series"
+nav_order: 1
+permalink: /posts/2026-10-21-mavis-0-overview-and-motivation/
 date: 2026-10-21 09:00:00 +0000
 categories: [mavis, architecture]
-series: mavis
-series_part: 0
 summary: "Why build another personal assistant? To experiment on how personal assistants can both be flexible and proactive."
 ---
 
+# Part 0: Overview & Motivation
+{: .fs-8 }
+
+Why build another personal assistant? To experiment on how personal assistants can both be flexible and proactive.
+{: .fs-5 .fw-300 .text-grey-dk-000 }
+
+---
 
 ## Motivation
 MAVIS is inspired from how JARVIS was portrayed in the Iron Man movies, a personal assistant who you just have to give a task and let it just do it. While this project certainly doesn't come close, it's an attempt in that direction. The AI agents I usually see require you to give them the tools beforehand and I wanted to try letting it make its own tools and subagents. Moreover, there were some ideas I wanted to experiment on how to design harness and memory. Another thing I noticed that many assistants are passive in the sense that they do stuff only when you prompt it and I wanted to see how a routine can be designed that allows the agent to learn stuff on its own. 
@@ -72,3 +80,11 @@ This blog series is structured as a design problem introduced at the start of ea
 ---
 
 *In Part 1, I will discuss how MAVIS handles task planning and execution along with tool and agent synthesis.*
+
+
+---
+
+<div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #eee; font-size: 0.9rem;">
+  <div></div>
+  <div style="text-align: right;">Next →<br><a href="{{ "/posts/2026-10-21-mavis-1-planning-and-dynamic-tooling/" | relative_url }}"><strong>Part 1 — Planning & Dynamic Tooling</strong></a></div>
+</div>

@@ -1,5 +1,34 @@
-context.md
+# Jekyll output & caches
 _site/
 .jekyll-cache/
 .sass-cache/
 .jekyll-metadata
+
+# Ruby / Bundler
+.bundle/
+vendor/
+vendor/bundle/
+
+# Node / npm tooling (e.g. live-server)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Temporary & backup folders
+_layouts_old/
+_posts_old/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Project-specific private reference
+context.md
+
+# IDE / Editor files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace

@@ -1,11 +1,20 @@
 ---
-layout: post
-title: "MAVIS Part 4 — Semantic Caching: Plan vs. Result Reuse"
+layout: default
+title: "Part 4: Semantic Caching"
+parent: "MAVIS Series"
+nav_order: 5
+permalink: /posts/2026-10-21-mavis-4-semantic-caching-and-latency/
 date: 2026-10-21 13:00:00 +0000
 categories: [mavis, architecture]
-series: mavis
-series_part: 4
 summary: "How MAVIS cuts latency and token costs: SQLite vector caching, tiered similarity thresholds, separating plan reuse from result TTLs, and deterministic regex pre-filters."
+---
+
+# Part 4: Semantic Caching
+{: .fs-8 }
+
+How MAVIS cuts latency and token costs: SQLite vector caching, tiered similarity thresholds, separating plan reuse from result TTLs, and deterministic regex pre-filters.
+{: .fs-5 .fw-300 .text-grey-dk-000 }
+
 ---
 
 ## The Fault in Our Caches
@@ -92,3 +101,11 @@ To prevent unbounded storage growth over time, the cache enforces a bounded ceil
 ---
 
 *In Part 5, I will explain how MAVIS does autonomous self-reflection during idle periods without infinite token burn.*
+
+
+---
+
+<div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #eee; font-size: 0.9rem;">
+  <div>← Previous<br><a href="{{ "/posts/2026-10-21-mavis-3-memory-architecture/" | relative_url }}"><strong>Part 3 — Memory Architecture</strong></a></div>
+  <div style="text-align: right;">Next →<br><a href="{{ "/posts/2026-10-21-mavis-5-autonomous-self-reflection/" | relative_url }}"><strong>Part 5 — Autonomous Reflection</strong></a></div>
+</div>

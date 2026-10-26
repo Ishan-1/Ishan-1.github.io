@@ -1,11 +1,20 @@
 ---
-layout: post
-title: "MAVIS Part 3 — Memory Architecture: 3 Tiers, Discrete Labels, and Topic-based Knowledge Graphs"
+layout: default
+title: "Part 3: Memory Architecture"
+parent: "MAVIS Series"
+nav_order: 4
+permalink: /posts/2026-10-21-mavis-3-memory-architecture/
 date: 2026-10-21 12:00:00 +0000
 categories: [mavis, architecture]
-series: mavis
-series_part: 3
 summary: "How MAVIS manages context across sessions without catastrophic forgetting: three cognitive tiers, verified promotion criteria, and topic-subscribed Neo4j knowledge graphs."
+---
+
+# Part 3: Memory Architecture
+{: .fs-8 }
+
+How MAVIS manages context across sessions without catastrophic forgetting: three cognitive tiers, verified promotion criteria, and topic-subscribed Neo4j knowledge graphs.
+{: .fs-5 .fw-300 .text-grey-dk-000 }
+
 ---
 
 ## To Remember or to Forget?
@@ -137,3 +146,11 @@ Therefore, this structured injection is tailored to the needs of each subsystem:
 ---
 
 *In Part 4, I will discuss how MAVIS implements semantic caching to cut latency and cost on redundant queries.*
+
+
+---
+
+<div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #eee; font-size: 0.9rem;">
+  <div>← Previous<br><a href="{{ "/posts/2026-10-21-mavis-2-security-and-observability/" | relative_url }}"><strong>Part 2 — Security & Observability</strong></a></div>
+  <div style="text-align: right;">Next →<br><a href="{{ "/posts/2026-10-21-mavis-4-semantic-caching-and-latency/" | relative_url }}"><strong>Part 4 — Semantic Caching</strong></a></div>
+</div>

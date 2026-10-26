@@ -1,0 +1,50 @@
+<div class="header-theme-toggle" style="display: flex; align-items: center; margin-left: auto; margin-right: 0.75rem;">
+  <button id="theme-toggle-btn" type="button" class="btn" style="display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.25rem 0.65rem; font-size: 0.8rem; font-weight: 500; cursor: pointer; border-radius: 6px; border: 1px solid rgba(120, 120, 120, 0.25); background: transparent; color: inherit; transition: all 0.2s ease;" aria-label="Toggle dark mode">
+    <span id="theme-toggle-icon">🌙</span>
+    <span id="theme-toggle-text">Dark Mode</span>
+  </button>
+</div>
+
+<script>
+  (function() {
+    function initTheme() {
+      var btn = document.getElementById('theme-toggle-btn');
+      var icon = document.getElementById('theme-toggle-icon');
+      var text = document.getElementById('theme-toggle-text');
+      if (!btn) return;
+
+      function updateUI(theme) {
+        if (theme === 'dark') {
+          if (icon) icon.textContent = '☀️';
+          if (text) text.textContent = 'Light Mode';
+        } else {
+          if (icon) icon.textContent = '🌙';
+          if (text) text.textContent = 'Dark Mode';
+        }
+      }
+
+      var savedTheme = localStorage.getItem('theme');
+      if (savedTheme && window.jtd && window.jtd.setTheme) {
+        window.jtd.setTheme(savedTheme);
+        updateUI(savedTheme);
+      } else if (window.jtd && window.jtd.getTheme) {
+        updateUI(window.jtd.getTheme());
+      }
+
+      btn.onclick = function() {
+        if (!window.jtd) return;
+        var current = window.jtd.getTheme();
+        var next = current === 'dark' ? 'light' : 'dark';
+        window.jtd.setTheme(next);
+        localStorage.setItem('theme', next);
+        updateUI(next);
+      };
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initTheme);
+    } else {
+      initTheme();
+    }
+  })();
+</script>

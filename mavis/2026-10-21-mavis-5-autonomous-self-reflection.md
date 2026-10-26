@@ -1,11 +1,20 @@
 ---
-layout: post
-title: "MAVIS Part 5 — Autonomous Reflection: Curiosity, Rut Detection, and Gated Beliefs"
+layout: default
+title: "Part 5: Autonomous Reflection"
+parent: "MAVIS Series"
+nav_order: 6
+permalink: /posts/2026-10-21-mavis-5-autonomous-self-reflection/
 date: 2026-10-21 14:00:00 +0000
 categories: [mavis, architecture]
-series: mavis
-series_part: 5
 summary: "Can an AI agent explore on its own and learn? Designing an adversarial generator-critic loop under the principle: exploration is good, but it should be worthwhile."
+---
+
+# Part 5: Autonomous Reflection
+{: .fs-8 }
+
+Can an AI agent explore on its own and learn? Designing an adversarial generator-critic loop under the principle: exploration is good, but it should be worthwhile.
+{: .fs-5 .fw-300 .text-grey-dk-000 }
+
 ---
 
 ## Why so Idle?
@@ -118,3 +127,11 @@ Background reflection runs under strict security constraints:
 ## Concluding the Architecture Series
 
 This post wraps up the core architecture series for MAVIS. As I mentioned at the start of the series, the project still has a long way to go in terms of both design and implementation to become a truly autonomous personal assistant. The final post on the project will focus on how to evaluate MAVIS and why normal benchmarks fail to do so. The proposed benchmark is a work in progress and will be published soon.
+
+
+---
+
+<div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #eee; font-size: 0.9rem;">
+  <div>← Previous<br><a href="{{ "/posts/2026-10-21-mavis-4-semantic-caching-and-latency/" | relative_url }}"><strong>Part 4 — Semantic Caching</strong></a></div>
+  <div style="text-align: right;">Next →<br><a href="{{ "/posts/2026-10-21-mavis-6-evaluation-mavis-bench/" | relative_url }}"><strong>Part 6 — Evaluation: MAVIS-Bench</strong></a></div>
+</div>

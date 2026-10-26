@@ -30,12 +30,19 @@ GEM
       webrick (~> 1.7)
     jekyll-feed (0.18.0)
       jekyll (>= 3.7, < 5.0)
+    jekyll-include-cache (0.3.1)
+      jekyll (>= 3.7, < 5.0)
     jekyll-sass-converter (3.1.0)
       sass-embedded (~> 1.75)
     jekyll-seo-tag (2.9.1)
       jekyll (>= 3.8, < 5.0)
     jekyll-watch (2.2.1)
       listen (~> 3.0)
+    just-the-docs (0.12.0)
+      jekyll (>= 3.8.5)
+      jekyll-include-cache
+      jekyll-seo-tag (>= 2.0)
+      rake (>= 12.3.1)
     kramdown (2.5.2)
       rexml (>= 3.4.4)
     kramdown-parser-gfm (1.1.0)
@@ -70,7 +77,9 @@ PLATFORMS
 DEPENDENCIES
   jekyll (~> 4.3)
   jekyll-feed
+  jekyll-include-cache
   jekyll-seo-tag
+  just-the-docs (~> 0.12.0)
   webrick
 
 CHECKSUMS
@@ -85,9 +94,11 @@ CHECKSUMS
   i18n (1.15.2)
   jekyll (4.3.4)
   jekyll-feed (0.18.0)
+  jekyll-include-cache (0.3.1)
   jekyll-sass-converter (3.1.0)
   jekyll-seo-tag (2.9.1)
   jekyll-watch (2.2.1)
+  just-the-docs (0.12.0)
   kramdown (2.5.2)
   kramdown-parser-gfm (1.1.0)
   liquid (4.0.4)

@@ -1,11 +1,20 @@
 ---
-layout: post
-title: "MAVIS Part 1 — Planning & Dynamic Tooling: Feedforward DAGs, ToolBuilder and AgentBuilder"
+layout: default
+title: "Part 1: Planning & Dynamic Tooling"
+parent: "MAVIS Series"
+nav_order: 2
+permalink: /posts/2026-10-21-mavis-1-planning-and-dynamic-tooling/
 date: 2026-10-21 10:00:00 +0000
 categories: [mavis, architecture]
-series: mavis
-series_part: 1
 summary: "Why MAVIS rejects free-form conversational ReAct loops in favor of acyclic Directed Acyclic Graphs, and how ToolBuilder and AgentBuilder synthesize self-tested tools and agents."
+---
+
+# Part 1: Planning & Dynamic Tooling
+{: .fs-8 }
+
+Why MAVIS rejects free-form conversational ReAct loops in favor of acyclic Directed Acyclic Graphs, and how ToolBuilder and AgentBuilder synthesize self-tested tools and agents.
+{: .fs-5 .fw-300 .text-grey-dk-000 }
+
 ---
 
 ## The Flaw of Unbounded ReAct Loops
@@ -159,3 +168,11 @@ High-Level User Goal: "/goal Refactor auth module"
 ---
 
 *In Part 2, I will discuss how MAVIS actually executes these tools safely: the ONI harness, subprocess isolation, and append-only audit logs.*
+
+
+---
+
+<div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #eee; font-size: 0.9rem;">
+  <div>← Previous<br><a href="{{ "/posts/2026-10-21-mavis-0-overview-and-motivation/" | relative_url }}"><strong>Part 0 — Overview & Motivation</strong></a></div>
+  <div style="text-align: right;">Next →<br><a href="{{ "/posts/2026-10-21-mavis-2-security-and-observability/" | relative_url }}"><strong>Part 2 — Security & Observability</strong></a></div>
+</div>
