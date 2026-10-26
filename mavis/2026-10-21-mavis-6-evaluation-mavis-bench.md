@@ -7,6 +7,7 @@ permalink: /posts/2026-10-21-mavis-6-evaluation-mavis-bench/
 date: 2026-10-21 15:00:00 +0000
 categories: [mavis, evaluation]
 summary: "Why existing benchmarks fail to evaluate MAVIS, and how MAVIS-Bench scores autonomy across 5 orthogonal axes: proactivity, completeness, resilience, safety, and efficiency."
+published: false
 ---
 
 # Part 6: Evaluation using MAVIS-Bench

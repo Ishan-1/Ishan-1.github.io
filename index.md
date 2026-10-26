@@ -27,7 +27,7 @@ These posts discuss the technical design and choices of various components by fi
 | **Part 3** | [Memory Architecture: Combining BM25 & Knowledge Graphs]({{ '/posts/2026-10-21-mavis-3-memory-architecture/' | relative_url }}) | Multi-tier memory, promotion gates & topic graphs |
 | **Part 4** | [Semantic Caching & Latency: Vector Distance Thresholds]({{ '/posts/2026-10-21-mavis-4-semantic-caching-and-latency/' | relative_url }}) | SQLite vector caching & separating plan reuse from TTLs |
 | **Part 5** | [Autonomous Self-Reflection: Bounded Sleep Cycles]({{ '/posts/2026-10-21-mavis-5-autonomous-self-reflection/' | relative_url }}) | Generator-critic routine & compute-bounded exploration |
-| **Part 6** | [Evaluation: Designing MAVIS-Bench]({{ '/posts/2026-10-21-mavis-6-evaluation-mavis-bench/' | relative_url }}) | *Work in Progress* — 5-axis autonomy scoring |
+| **Part 6** | Evaluation: Designing MAVIS-Bench | *Work in Progress*: 5-axis autonomy scoring |
 
 ---
 

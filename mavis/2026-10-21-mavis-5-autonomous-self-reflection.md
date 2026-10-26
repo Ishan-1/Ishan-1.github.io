@@ -133,5 +133,6 @@ This post wraps up the core architecture series for MAVIS. As I mentioned at the
 
 <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #eee; font-size: 0.9rem;">
   <div>← Previous<br><a href="{{ "/posts/2026-10-21-mavis-4-semantic-caching-and-latency/" | relative_url }}"><strong>Part 4 — Semantic Caching</strong></a></div>
-  <div style="text-align: right;">Next →<br><a href="{{ "/posts/2026-10-21-mavis-6-evaluation-mavis-bench/" | relative_url }}"><strong>Part 6 — Evaluation: MAVIS-Bench</strong></a></div>
+  <div style="text-align: right; color: #777;">Up Next<br><span><strong>Part 6: Evaluation</strong> <em>(Coming Soon)</em></span></div>
 </div>
+
